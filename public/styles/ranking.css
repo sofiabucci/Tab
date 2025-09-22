@@ -1,0 +1,101 @@
+/* Base Styles
+---------------------------------------- */
+.content-container {
+  width: 90%; /* Increase container width */
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.ranking-container {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Table Base Styles */
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Header Styles - Reduced padding */
+.ranking-table thead {
+  background-color: #009579;
+  color: white;
+}
+
+.ranking-table th {
+  padding: 0.8rem; /* Reduced from 1.5rem */
+  font-size: 1rem; /* Reduced from 1.2rem */
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Cell Styles - Reduced padding */
+.ranking-table td {
+  padding: 0.6rem 0.8rem; /* Reduced from 1.2rem 1.5rem */
+  font-size: 0.9rem; /* Reduced from 1.1rem */
+  border-bottom: 1px solid #eee;
+}
+
+/* Column Alignment */
+.ranking-table td:nth-child(3),
+.ranking-table th:nth-child(3),
+.ranking-table td:nth-child(4),
+.ranking-table td:nth-child(5),
+.ranking-table th:nth-child(4),
+.ranking-table th:nth-child(5) {
+  text-align: center;
+}
+
+/* Rank Badge Styles - Made smaller */
+.rank {
+  display: inline-block;
+  width: 1.8rem; /* Reduced from 2.5rem */
+  height: 1.8rem; /* Reduced from 2.5rem */
+  line-height: 1.8rem; /* Reduced from 2.5rem */
+  text-align: center;
+  border-radius: 50%;
+  font-weight: bold;
+  color: white;
+}
+
+/* Rank Colors */
+.rank-1 { background: #ffd700; }
+.rank-2 { background: #c0c0c0; }
+.rank-3 { background: #cd7f32; }
+.rank:not(.rank-1):not(.rank-2):not(.rank-3) { background: #009579; }
+
+/* Zebra Striping */
+.ranking-table tbody tr:nth-child(even) {
+  background-color: rgba(0, 149, 121, 0.05);
+}
+
+/* Hover Effect */
+.ranking-table tbody tr:hover {
+  background-color: rgba(0, 149, 121, 0.1);
+}
+
+/* Responsive Design - Simplified */
+@media screen and (max-width: 768px) {
+  .content-container {
+      width: 95%;
+      padding: 10px;
+  }
+  
+  .ranking-table th,
+  .ranking-table td {
+      padding: 0.5rem;
+      font-size: 0.9rem;
+  }
+
+  .rank {
+      width: 1.5rem;
+      height: 1.5rem;
+      line-height: 1.5rem;
+  }
+}

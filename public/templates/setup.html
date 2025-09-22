@@ -1,0 +1,40 @@
+<div class="setup-container">
+  <h2 id="gameSetupTitle">Game Setup</h2>
+  <form id="gameSetupForm" class="setup-form">
+      <div class="form-group">
+      <label>Game Mode:</label>
+      <select id="gameMode">
+          <option value="pvp">Player vs Player</option>
+          <option value="pvc">Player vs Computer</option>
+          <option value="pvpo">Player vs Player (Online)</option>
+      </select>
+      </div>
+      <div class="form-group" id="difficultyGroup" style="display: none">
+      <label>AI Difficulty:</label>
+      <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+      </select>
+      </div>
+      <div class="form-group">
+      <label>Board Size:</label>
+      <select id="boardSize">
+          <option value="2">Tiny (2)</option>
+          <option value="3">Standard (3)</option>
+          <option value="4">Large (4)</option>
+      </select>
+      </div>
+      <div class="form-group" id="firstPlayer">
+      <label>First Player:</label>
+      <select>
+          <option value="player1">Player 1</option>
+          <option value="player2">Player 2/AI</option>
+      </select>
+      </div>
+      <div class="button-group">
+      <button type="submit">Play</button>
+      <button type="button" id="backBtn">Back</button>
+      </div>
+  </form>
+  </div>
