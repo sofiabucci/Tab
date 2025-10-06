@@ -1,41 +1,29 @@
-function initSetup() {
-  const form = document.getElementById("gameSetupForm");
-  if (!form) {
-    console.warn("setupForm não encontrado, HTML pode não estar carregado ainda.");
-    return;
+const setupForm = document.getElementById('setupForm');
+const setupModal = document.getElementById('setupModal');
+const setupReset = document.getElementById('setupReset');
+
+const gameModeSelect = document.getElementById('gameMode');
+const difficultyGroup = document.getElementById('difficultyGroup');
+
+gameModeSelect.addEventListener('change', () => {
+  if (gameModeSelect.value === 'pvc') {
+    difficultyGroup.style.display = 'flex';
+  } else {
+    difficultyGroup.style.display = 'none';
   }
+});
 
-  const gameModeSelect = document.getElementById("gameMode");
-  const difficultyGroup = document.getElementById("difficultyGroup");
+setupForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const mode = gameModeSelect.value;
+  const difficulty = document.getElementById('difficulty').value;
+  const columns = parseInt(document.getElementById('boardSize').value);
+  const firstPlayer = document.getElementById('firstPlayerSelect').value;
 
-  // Mostra ou esconde a dificuldade conforme o modo de jogo
-  gameModeSelect.addEventListener("change", () => {
-    if (gameModeSelect.value === "pvc") {
-      difficultyGroup.style.display = "block";
-    } else {
-      difficultyGroup.style.display = "none";
-    }
-  });
+  generateBoard(columns); // Atualiza o board
+  setupModal.classList.add('hidden');
 
-  // Quando o formulário for enviado
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
+  console.log('Configurações do jogo:', { mode, difficulty: mode === 'pvc' ? difficulty : 'N/A', columns, firstPlayer });
+});
 
-    const gameMode = document.getElementById("gameMode").value;
-    const difficulty = document.getElementById("difficulty").value;
-    const boardSize = document.getElementById("boardSize").value;
-    const firstPlayer = document.querySelector("#firstPlayer select").value;
-
-    const config = { gameMode, difficulty, boardSize, firstPlayer };
-
-    // Salva as configurações
-    sessionStorage.setItem("tabGameConfig", JSON.stringify(config));
-
-    // Redireciona para o tabuleiro
-    window.location.href = "templates/board.html";
-  });
-
-  // Botão de reset
-  const backBtn = document.getElementById("backBtn");
-  backBtn.addEventListener("click", () => form.reset());
-}
+setupReset.addEventListener('click', () => setupForm.reset());

@@ -1,18 +1,127 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tâb</title>
+  <title>Tâb Game</title>
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-  <img src="assets/ChatGPT_Image_Oct_6__2025__02_21_12_PM-removebg-preview.png" alt="Tâb Logo">
 
-  <div id="app"></div> 
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="logo">
+      <img src="assets/logo.png" alt="Tâb Logo">
+    </div>
+    <ul class="nav-links">
+      <li><span id="playBtn">Play</span></li>
+      <li><span id="rulesBtn">Rules</span></li>
+      <li><span id="classBtn">Classifications</span></li>
+      <li><span id="loginBtn">Login</span></li>
+    </ul>
+  </nav>
 
+  <!-- BOARD -->
+  <section id="boardSection">
+    <div class="board-container">
+      <div id="gameBoard" class="board"></div>
+      <div class="dice-box">
+        <button id="rollDiceBtn">Roll Dice</button>
+        <p id="diceResult">🎲</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL: GAME SETUP -->
+  <div id="setupModal" class="modal hidden">
+    <div class="setup-container">
+      <span class="close">&times;</span>
+      <h2 id="gameSetupTitle">Game Setup</h2>
+      <form id="setupForm" class="setup-form">
+
+        <div class="form-group">
+          <label>Game Mode:</label>
+          <select id="gameMode">
+            <option value="pvp">Player vs Player</option>
+            <option value="pvc">Player vs Computer</option>
+            <option value="pvpo">Player vs Player (Online)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="difficultyGroup" style="display: none">
+            <label>AI Difficulty:</label>
+            <select id="difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
+
+
+        <div class="form-group">
+          <label>Columns Number:</label>
+          <select id="boardSize">
+            <option value="7">7</option>
+            <option value="9">9</option>
+            <option value="11">11</option>
+            <option value="13">13</option>
+            <option value="15">15</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="firstPlayer">
+          <label>First Player:</label>
+          <select id="firstPlayerSelect">
+            <option value="player1">Player 1</option>
+            <option value="player2">Player 2 / AI</option>
+          </select>
+        </div>
+
+        <div class="button-group">
+          <button type="submit">Play</button>
+          <button type="button" id="setupReset">Reset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Outras modais -->
+  <div id="rulesModal" class="modal hidden">
+    <div class="setup-container">
+      <span class="close">&times;</span>
+      <h2>Rules</h2>
+      <p>Coloque aqui as regras do jogo...</p>
+    </div>
+  </div>
+
+  <div id="classModal" class="modal hidden">
+    <div class="setup-container">
+      <span class="close">&times;</span>
+      <h2>Classifications</h2>
+      <p>Leaderboard e pontuações...</p>
+    </div>
+  </div>
+
+  <div id="loginModal" class="modal hidden">
+    <div class="setup-container">
+      <span class="close">&times;</span>
+      <h2>Login</h2>
+      <form id="loginForm" class="setup-form">
+        <div class="form-group">
+          <label>Username:</label>
+          <input type="text" id="username">
+        </div>
+        <div class="form-group">
+          <label>Password:</label>
+          <input type="password" id="password">
+        </div>
+        <button type="submit">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="scripts/navbar.js"></script>
   <script src="scripts/setup.js"></script>
-  <script src="scripts/main.js"></script>
-
+  <script src="scripts/board.js"></script>
 </body>
 </html>
