@@ -7,30 +7,24 @@ body {
   padding: 0;
 
   display: flex;
-  justify-content: space-between; /* imagem à esquerda, setup à direita */
-  align-items: center; /* centraliza verticalmente */
+  justify-content: center;       /* centraliza o conjunto imagem + setup */
+  align-items: center;           /* centraliza verticalmente */
   height: 100vh;
-  padding: 0 50px;
+  gap: 100px;                    /* espaçamento entre imagem e setup */
 }
 
+/* imagem à esquerda */
 img {
-  max-width: 500px;
+  max-width: 450px;
   height: auto;
-}
-
-/* Área do setup à direita */
-#setup-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex: 0 0 600px; /* largura maior */
+  flex-shrink: 0;                /* impede que a imagem encolha demais */
 }
 
 /* Caixa principal do setup */
 .setup-container {
   background-color: #8b5a2b;
   border-radius: 30px;
-  width: 100%;
+  width: 550px;
   padding: 50px 40px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   display: flex;
@@ -117,16 +111,12 @@ button:hover {
     flex-direction: column;
     justify-content: center;
     padding: 20px;
+    gap: 40px;
   }
 
   img {
-    margin-bottom: 40px;
-    max-width: 200px;
-  }
-
-  #setup-container {
-    width: 100%;
-    flex: unset;
+    margin-bottom: 20px;
+    max-width: 250px;
   }
 
   .setup-container {
