@@ -3,28 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dara</title>
-    <link rel="stylesheet" href="./styles/board.css">
+    <title>Tâb</title>
     <link rel="stylesheet" href="./styles/main.css">
-    <link rel="stylesheet" href="./styles/ranking.css">
 </head>
 <body>
-    <nav class="nav">
-        <a href="/" class="nav__link" data-link>Home</a>
-        <a href="/game-setup" class="nav__link" data-link>Start Game</a>
-        <a href="/rules" class="nav__link" data-link>Rules</a>
-        <a href="/manual" class="nav__link" data-link>How to Play</a>
-        <a href="/ranking" class="nav__link" data-link>Ranking</a>
-        <a href="/" id="logout" class="nav__link">Logout</a>
-    </nav>
-    <div id="app"></div>
+    <img src="assets/ChatGPT_Image_Oct_6__2025__02_21_12_PM-removebg-preview.png" alt="">
 
-    <script type="module" src="./scripts/auth.js"></script>
-    <script type="module" src="./scripts/views.js"></script>
-    <script type="module" src="./scripts/router.js"></script>
-    <script type="module" src="./scripts/serverRequests.js"></script>
-    <script type="module" src="./scripts/board.js"></script>
-    <script type="module" src="./scripts/server_board.js"></script>
-    
+    <div id="setup-container">
+        <script src="scripts/setup.js"></script>
+    </div>
+
+    <div id="app"> </div>
+
+
 </body>
 </html>

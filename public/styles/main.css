@@ -1,0 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=Freckle+Face&display=swap');
+
+body {
+  background-color: #d2b48c;
+  font-family: 'Freckle Face', system-ui;
+  margin: 0;
+  padding: 0;
+
+  display: flex;
+  justify-content: space-between; /* imagem à esquerda, setup à direita */
+  align-items: center; /* centraliza verticalmente */
+  height: 100vh;
+  padding: 0 50px;
+}
+
+img {
+  max-width: 500px;
+  height: auto;
+}
+
+/* Área do setup à direita */
+#setup-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 0 0 600px; /* largura maior */
+}
+
+/* Caixa principal do setup */
+.setup-container {
+  background-color: #8b5a2b;
+  border-radius: 30px;
+  width: 100%;
+  padding: 50px 40px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: white;
+}
+
+/* Título */
+.setup-container h2 {
+  font-size: 2rem;
+  margin-bottom: 30px;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+/* Form centralizado */
+.setup-form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 25px;
+  width: 100%;
+}
+
+/* Grupo de campos */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  font-size: 1.1rem;
+}
+
+/* Labels */
+label {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+/* Selects estilizados */
+select {
+  background-color: #d2b48c;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-family: 'Freckle Face', system-ui;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+select:hover {
+  background-color: #deb887;
+}
+
+/* Botões */
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  gap: 15px;
+}
+
+button {
+  flex: 1;
+  background-color: #d2b48c;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-family: 'Freckle Face', system-ui;
+  transition: all 0.2s ease-in-out;
+}
+
+button:hover {
+  background-color: #deb887;
+  transform: scale(1.05);
+}
+
+/* Responsividade */
+@media (max-width: 900px) {
+  body {
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  img {
+    margin-bottom: 40px;
+    max-width: 200px;
+  }
+
+  #setup-container {
+    width: 100%;
+    flex: unset;
+  }
+
+  .setup-container {
+    width: 100%;
+    max-width: 400px;
+  }
+}
