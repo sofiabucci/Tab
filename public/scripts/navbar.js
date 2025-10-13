@@ -1,16 +1,32 @@
-const modalMap = {
-  playBtn: 'setupModal',
-  rulesBtn: 'rulesModal',
-  classBtn: 'classModal',
-  loginBtn: 'loginModal'
-};
+document.addEventListener('DOMContentLoaded', function() {
+  const modalMap = {
+    playBtn: 'setupModal',
+    rulesBtn: 'rulesModal', 
+    classBtn: 'classModal',
+    loginBtn: 'loginModal'
+  };
 
-for (const [btnId, modalId] of Object.entries(modalMap)) {
-  const btn = document.getElementById(btnId);
-  const modal = document.getElementById(modalId);
-  const close = modal.querySelector('.close');
+  // Abrir modais
+  for (const [btnId, modalId] of Object.entries(modalMap)) {
+    const btn = document.getElementById(btnId);
+    const modal = document.getElementById(modalId);
 
-  btn.addEventListener('click', () => modal.classList.remove('hidden'));
-  close.addEventListener('click', () => modal.classList.add('hidden'));
-  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
-}
+    btn.addEventListener('click', () => modal.classList.remove('hidden'));
+  }
+
+  // Fechar modais ao clicar fora (área escura)
+  document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+      if (e.target === this) {
+        this.classList.add('hidden');
+      }
+    });
+  });
+
+  // Impedir que clique dentro do conteúdo feche a modal
+  document.querySelectorAll('.setup-container').forEach(container => {
+    container.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  });
+});

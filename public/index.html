@@ -27,7 +27,7 @@
       <div id="gameBoard" class="board"></div>
     </div>
 
-    <!-- Dice fixo ao lado direito -->
+  <!-- Dice fixo ao lado direito -->
     <div class="dice-container">
       <div class="dice-box">
         <button id="rollDiceBtn">
@@ -41,7 +41,6 @@
   <!-- MODAL: GAME SETUP -->
   <div id="setupModal" class="modal hidden">
     <div class="setup-container">
-      <span class="close">&times;</span>
       <h2 id="gameSetupTitle">Game Setup</h2>
       <form id="setupForm" class="setup-form">
 
@@ -94,15 +93,66 @@
   <!-- Outras modais -->
   <div id="rulesModal" class="modal hidden">
     <div class="setup-container">
-      <span class="close">&times;</span>
-      <h2>Rules</h2>
-      <p>Coloque aqui as regras do jogo...</p>
+      <h2>Tâb Game Rules</h2>
+      <div style="text-align: left; max-height: 400px; overflow-y: auto; padding: 10px; line-height: 1.6;">
+        <h3>🎯 Objective</h3>
+        <p>Be the first player to move all your pieces to the opposite side of the board.</p>
+        
+        <h3>📐 Components</h3>
+        <ul>
+          <li>Game board with rows of houses</li>
+          <li>15 pieces for each player</li>
+          <li>1 six-sided die</li>
+        </ul>
+        
+        <h3>⚡ Setup</h3>
+        <ul>
+          <li>Each player places their 15 pieces on the first row of their side</li>
+          <li>Players decide who starts first (usually by dice roll)</li>
+          <li>Choose between 7, 9, 11, 13, or 15 columns for different difficulty levels</li>
+        </ul>
+        
+        <h3>🎲 How to Play</h3>
+        <ul>
+          <li>Players take turns rolling the die</li>
+          <li>The number rolled indicates how many houses a piece can move forward</li>
+          <li>Pieces always move forward toward the opposite side</li>
+          <li>You can move any of your pieces that has a clear path</li>
+        </ul>
+        
+        <h3>🏃 Special Moves</h3>
+        <ul>
+          <li><strong>Forward movement:</strong> Pieces move straight forward along their column</li>
+          <li><strong>Blocking:</strong> A piece cannot jump over other pieces - if the path is blocked, you must choose another piece</li>
+          <li><strong>Exact roll:</strong> To reach the final row, you need the exact number on the die</li>
+        </ul>
+        
+        <h3>🏆 Winning the Game</h3>
+        <ul>
+          <li>The first player to move all their pieces to the opposite home row wins</li>
+          <li>All pieces must land exactly on the final row - no overshooting</li>
+        </ul>
+        
+        <h3>🎮 Game Modes</h3>
+        <ul>
+          <li><strong>Player vs Player:</strong> Two human players compete</li>
+          <li><strong>Player vs Computer:</strong> Play against AI with adjustable difficulty</li>
+          <li><strong>Online Multiplayer:</strong> Challenge players online</li>
+        </ul>
+        
+        <h3>💡 Strategy Tips</h3>
+        <ul>
+          <li>Spread your pieces across multiple columns</li>
+          <li>Plan ahead to avoid blocking your own pieces</li>
+          <li>Use higher rolls for pieces that are further behind</li>
+          <li>Keep an eye on your opponent's progress</li>
+        </ul>
+      </div>
     </div>
   </div>
 
   <div id="classModal" class="modal hidden">
     <div class="setup-container">
-      <span class="close">&times;</span>
       <h2>Classifications</h2>
       <p>Leaderboard e pontuações...</p>
     </div>
@@ -110,7 +160,6 @@
 
   <div id="loginModal" class="modal hidden">
     <div class="setup-container">
-      <span class="close">&times;</span>
       <h2>Login</h2>
       <form id="loginForm" class="setup-form">
         <div class="form-group">

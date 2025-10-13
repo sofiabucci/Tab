@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let isRolling = false;
 
+  diceResult.textContent = 'Rolling...';
+
   rollDiceBtn.addEventListener('click', function() {
     if (isRolling) return; 
     
@@ -19,8 +21,6 @@ document.addEventListener('DOMContentLoaded', function() {
       const randomNumber = Math.floor(Math.random() * 6) + 1;
       
       diceGif.src = "assets/dice.gif?" + new Date().getTime(); // Force reload
-      setTimeout(() => {
-      }, 100);
       
       diceResult.textContent = randomNumber;
       isRolling = false;
