@@ -15,15 +15,22 @@ gameModeSelect.addEventListener('change', () => {
 
 setupForm.addEventListener('submit', e => {
   e.preventDefault();
+
   const mode = gameModeSelect.value;
   const difficulty = document.getElementById('difficulty').value;
   const columns = parseInt(document.getElementById('boardSize').value);
   const firstPlayer = document.getElementById('firstPlayerSelect').value;
 
-  generateBoard(columns); // Atualiza o board
+  generateBoard(columns);
+
   setupModal.classList.add('hidden');
 
-  console.log('Configurações do jogo:', { mode, difficulty: mode === 'pvc' ? difficulty : 'N/A', columns, firstPlayer });
+  console.log('Configurações do jogo:', { 
+    mode, 
+    difficulty: mode === 'pvc' ? difficulty : 'N/A', 
+    columns, 
+    firstPlayer 
+  });
 });
 
 setupReset.addEventListener('click', () => setupForm.reset());

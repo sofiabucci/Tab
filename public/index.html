@@ -21,16 +21,22 @@
     </ul>
   </nav>
 
-  <!-- BOARD -->
-  <section id="boardSection">
+  <section id="gameSection">
+  <!-- Board centralizado -->
     <div class="board-container">
       <div id="gameBoard" class="board"></div>
+    </div>
+
+    <!-- Dice fixo ao lado direito -->
+    <div class="dice-container">
       <div class="dice-box">
-        <button id="rollDiceBtn">Roll Dice</button>
-        <p id="diceResult">🎲</p>
+        <button id="rollDiceBtn">
+          <img id="diceGif" src="assets/dice.gif" alt="Dice">
+        </button>
+        <p id="diceResult"></p>
       </div>
     </div>
-  </section>
+
 
   <!-- MODAL: GAME SETUP -->
   <div id="setupModal" class="modal hidden">
@@ -123,5 +129,6 @@
   <script src="scripts/navbar.js"></script>
   <script src="scripts/setup.js"></script>
   <script src="scripts/board.js"></script>
+  <script src="scripts/dice.js"></script>
 </body>
 </html>

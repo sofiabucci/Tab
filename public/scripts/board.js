@@ -1,23 +1,34 @@
 const gameBoard = document.getElementById('gameBoard');
-const diceBtn = document.getElementById('rollDiceBtn');
-const diceResult = document.getElementById('diceResult');
 
-function generateBoard(columns = 7) {
+function generateBoard(columns = 9) { // padrão = 9 colunas
   gameBoard.innerHTML = '';
-  gameBoard.style.gridTemplateColumns = `repeat(${columns}, 70px)`;
-  const totalCells = columns * 4; // 4 linhas
-  for (let i = 0; i < totalCells; i++) {
-    const cell = document.createElement('div');
-    cell.classList.add('cell');
-    gameBoard.appendChild(cell);
+
+  const rows = 4; 
+  gameBoard.style.gridTemplateColumns = `repeat(${columns}, 70px)`; // ajusta grid
+
+  for (let row = 1; row <= rows; row++) {
+    for (let col = 1; col <= columns; col++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+
+      const token = document.createElement('div');
+      token.classList.add('boardToken');
+
+      // Tokens iniciais
+      if (row === 1) {
+        token.classList.add('player2');
+        token.textContent = '-?-';
+        token.id = `p2-token-${col}`;
+      } else if (row === rows) {
+        token.classList.add('player1');
+        token.textContent = '-?-';
+        token.id = `p1-token-${col}`;
+      }
+
+      cell.appendChild(token);
+      gameBoard.appendChild(cell);
+    }
   }
 }
 
-// Board padrão
-generateBoard(7);
-
-// Dice roll
-diceBtn.addEventListener('click', () => {
-  const roll = Math.floor(Math.random() * 6) + 1;
-  diceResult.textContent = `🎲 ${roll}`;
-});
+generateBoard();
