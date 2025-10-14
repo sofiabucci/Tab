@@ -1,34 +1,50 @@
-const gameBoard = document.getElementById('gameBoard');
 
-function generateBoard(columns = 9) { // padrão = 9 colunas
-  gameBoard.innerHTML = '';
+// Game board class
+class GameBoard {
+    constructor(id, cols) {
+        this.content = new Array(cols*4);
+        this.boardElements = new Array(cols*4);
+        this.currentPlayer = 'X';
+        this.cols = cols;
+        
+        const parent = document.getElementById(id);
+        const board = document.createElement('div');
+        
+        board.className = 'board';
+        parent.appendChild(board);
 
-  const rows = 4; 
-  gameBoard.style.gridTemplateColumns = `repeat(${columns}, 70px)`; // ajusta grid
+        board.style.gridTemplateRows = `repeat(4, auto)`;
+        board.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+        
+        // Create cells
+        for(let i = 0; i < cols*4; i++) {
+            let cell = document.createElement('div');
+            cell.className = 'board-square';
+            cell.dataset.index = i;
+            board.appendChild(cell);
 
-  for (let row = 1; row <= rows; row++) {
-    for (let col = 1; col <= columns; col++) {
-      const cell = document.createElement('div');
-      cell.classList.add('cell');
+            if(i<cols || i> 3*cols-1){
+                let token = document.createElement('div');
+                let token_class = (i<cols ?'board-token player-2':'board-token player-1');
+                token.className = token_class;
+                token.dataset.index = i;
+                cell.appendChild(token);
 
-      const token = document.createElement('div');
-      token.classList.add('boardToken');
-
-      // Tokens iniciais
-      if (row === 1) {
-        token.classList.add('player2');
-        token.textContent = '-?-';
-        token.id = `p2-token-${col}`;
-      } else if (row === rows) {
-        token.classList.add('player1');
-        token.textContent = '-?-';
-        token.id = `p1-token-${col}`;
-      }
-
-      cell.appendChild(token);
-      gameBoard.appendChild(cell);
+            }
+            
+            // Add click event
+            cell.addEventListener('click', () => this.play(i));
+            
+            this.boardElements[i] = cell;  
+        }
+        
+        
+        // Initialize content array
+        this.content.fill(null);
     }
-  }
+    
 }
 
-generateBoard();
+window.onload = function() {
+    const game = new GameBoard("board-container", 15);
+}
