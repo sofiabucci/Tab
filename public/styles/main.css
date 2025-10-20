@@ -75,10 +75,13 @@ img{
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 8px 12px;
   transition: all 0.2s ease-in-out;
-  width: 80px; /* Ajuste conforme o tamanho do seu GIF */
-  height: 80px;
+  min-width: 80px;
+  min-height: 48px;
+  font-size: 1.25rem; /* larger font for Roll */
+  color: white; /* make text white */
+  font-weight: 700;
 }
 
 #rollDiceBtn:hover {
@@ -93,9 +96,9 @@ img{
 
 #diceResult { 
   margin-top: 10px; 
-  font-size: 1.5rem; 
+  font-size: 1rem; /* reduced from 1.5rem */
   font-weight: bold;
-  min-height: 30px;
+  min-height: 24px;
   color: white;
 }
 
