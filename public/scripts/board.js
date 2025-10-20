@@ -2,16 +2,23 @@
 // Game board class
 class GameBoard {
     constructor(id, cols) {
+        // Accept either (id, cols) or (id, cols, options)
+        let options = {};
+        if (arguments.length >= 3) options = arguments[2] || {};
+
         this.content = new Array(cols*4);
         this.boardElements = new Array(cols*4);
-        this.currentPlayer = 'X';
+        // Set starting player based on options.firstPlayer
+        this.currentPlayer = options.firstPlayer === 'player2' ? 'O' : 'X';
         this.cols = cols;
         
-        const parent = document.getElementById(id);
-        const board = document.createElement('div');
-        
-        board.className = 'board';
-        parent.appendChild(board);
+    const parent = document.getElementById(id);
+    // Clear existing board if present
+    parent.innerHTML = '';
+
+    const board = document.createElement('div');
+    board.className = 'board';
+    parent.appendChild(board);
 
         board.style.gridTemplateRows = `repeat(4, auto)`;
         board.style.gridTemplateColumns = `repeat(${cols}, auto)`;
@@ -33,7 +40,7 @@ class GameBoard {
             }
             
             // Add click event
-            cell.addEventListener('click', () => this.play(i));
+            cell.addEventListener('click', () => this.play && this.play(i));
             
             this.boardElements[i] = cell;  
         }
@@ -43,8 +50,22 @@ class GameBoard {
         this.content.fill(null);
     }
     
-}
+    }
 
-window.onload = function() {
-    const game = new GameBoard("board-container", 15);
-}
+    // Expose a helper to generate the board with options
+    function generateBoard(columns, options = {}) {
+        // Ensure columns is a number and fallback to 15
+        const cols = parseInt(columns) || 15;
+        // Create a GameBoard instance and store it globally if needed
+        window._currentGameBoard = new GameBoard('board-container', cols, options);
+        return window._currentGameBoard;
+    }
+
+    // Initial load with default columns (9)
+    window.onload = function() {
+        generateBoard(9, { firstPlayer: 'player1' });
+    }
+
+    // Expose generateBoard and GameBoard to global scope
+    window.generateBoard = generateBoard;
+    window.GameBoard = GameBoard;

@@ -21,7 +21,24 @@ setupForm.addEventListener('submit', e => {
   const columns = parseInt(document.getElementById('boardSize').value);
   const firstPlayer = document.getElementById('firstPlayerSelect').value;
 
-  generateBoard(columns);
+  // Pass options to generateBoard so the board can be configured
+  const options = {
+    mode,
+    difficulty: mode === 'pvc' ? difficulty : null,
+    firstPlayer // 'player1' or 'player2'
+  };
+
+  if (typeof generateBoard === 'function') {
+    generateBoard(columns, options);
+  } else {
+    // Fallback: try creating GameBoard directly if generateBoard isn't available
+    if (window.GameBoard) {
+      // remove existing board container content before creating
+      const parent = document.getElementById('board-container');
+      parent.innerHTML = '';
+      new GameBoard('board-container', columns, options);
+    }
+  }
 
   setupModal.classList.add('hidden');
 

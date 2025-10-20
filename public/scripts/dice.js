@@ -20,13 +20,11 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
       const randomNumber = Math.floor(Math.random() * 6) + 1;
       
-      diceGif.src = "assets/dice.gif?" + new Date().getTime(); // Force reload
+      diceGif.src = "assets/dice.gif?" + new Date().getTime();
       
       diceResult.textContent = randomNumber;
       isRolling = false;
-      
-      console.log('Dice result:', randomNumber);
-      
+            
     }, animationTime);
   });
 });
