@@ -1,340 +1,298 @@
-class TabAI {
-    constructor(difficulty = 'medium') {
-        this.difficulty = difficulty;
-        this.maxDepth = this.getMaxDepth();
-    }
+// ================================
+// 🏺 Egyptian Tâb (versão sem stacks)
+// ================================
 
-    getMaxDepth() {
-        switch(this.difficulty) {
-            case 'easy': return 2;
-            case 'medium': return 4;
-            case 'hard': return 6;
-            default: return 4;
-        }
-    }
+// Constantes básicas
+const WHITE = "W";
+const BLACK = "B";
+const ROWS = 4;
 
-    // Função principal para a IA fazer uma jogada
-    makeMove(gameState, diceRoll) {
-        console.log(`AI (${this.difficulty}) thinking with dice: ${diceRoll}`);
-        
-        const possibleMoves = this.generatePossibleMoves(gameState, diceRoll);
-        
-        if (possibleMoves.length === 0) {
-            console.log("No valid moves available");
-            return null;
-        }
+// Valores possíveis dos sticks (varetas)
+const THROWS = [
+  [1, 0.25, true],  // tâb → 1
+  [2, 0.38, true],
+  [3, 0.25, false],
+  [4, 0.06, false],
+  [6, 0.06, true]
+];
 
-        let bestMove = null;
-        let bestValue = -Infinity;
+// ---------------------------------
+// 🧱 Estrutura da peça
+// ---------------------------------
+class Piece {
+  constructor(player, row, col) {
+    this.player = player;
+    this.row = row;
+    this.col = col;
+    this.hasConverted = false;           // se já fez o primeiro movimento "tâb"
+    this.hasEnteredOpponentHome = false; // se já entrou na home row do adversário
+    this.history = [];                   // rows visitadas
+  }
 
-        // Avalia cada movimento possível
-        for (const move of possibleMoves) {
-            const newState = this.applyMove(gameState, move);
-            const value = this.minimax(newState, this.maxDepth - 1, false, -Infinity, Infinity);
-            
-            if (value > bestValue) {
-                bestValue = value;
-                bestMove = move;
-            }
-        }
-
-        console.log("AI chose move:", bestMove);
-        return bestMove;
-    }
-
-    // Algoritmo Minimax com Alpha-Beta Pruning
-    minimax(gameState, depth, isMaximizing, alpha, beta) {
-        // Condição de término: profundidade máxima ou jogo acabado
-        if (depth === 0 || this.isGameOver(gameState)) {
-            return this.evaluate(gameState);
-        }
-
-        if (isMaximizing) {
-            let maxEval = -Infinity;
-            const possibleMoves = this.generatePossibleMoves(gameState, this.simulateDiceRoll());
-            
-            for (const move of possibleMoves) {
-                const newState = this.applyMove(gameState, move);
-                const eval = this.minimax(newState, depth - 1, false, alpha, beta);
-                maxEval = Math.max(maxEval, eval);
-                alpha = Math.max(alpha, eval);
-                
-                if (beta <= alpha) break; // Alpha-Beta pruning
-            }
-            return maxEval;
-        } else {
-            let minEval = Infinity;
-            const possibleMoves = this.generatePossibleMoves(gameState, this.simulateDiceRoll());
-            
-            for (const move of possibleMoves) {
-                const newState = this.applyMove(gameState, move);
-                const eval = this.minimax(newState, depth - 1, true, alpha, beta);
-                minEval = Math.min(minEval, eval);
-                beta = Math.min(beta, eval);
-                
-                if (beta <= alpha) break; // Alpha-Beta pruning
-            }
-            return minEval;
-        }
-    }
-
-    // Gera todos os movimentos possíveis para um dado valor
-    generatePossibleMoves(gameState, diceRoll) {
-        const moves = [];
-        const aiPieces = gameState.getAIPieces(); // Peças da IA
-        
-        for (const piece of aiPieces) {
-            if (this.isValidMove(gameState, piece, diceRoll)) {
-                moves.push({
-                    pieceId: piece.id,
-                    fromPosition: piece.position,
-                    toPosition: this.calculateNewPosition(piece.position, diceRoll),
-                    diceRoll: diceRoll
-                });
-            }
-        }
-        
-        return moves;
-    }
-
-    // Verifica se um movimento é válido
-    isValidMove(gameState, piece, diceRoll) {
-        const newPosition = this.calculateNewPosition(piece.position, diceRoll);
-        
-        // Verifica se está dentro do tabuleiro
-        if (!this.isWithinBoard(newPosition)) {
-            return false;
-        }
-        
-        // Verifica se a casa destino está vazia ou tem peça adversária (dependendo das regras)
-        if (!gameState.isCellEmpty(newPosition)) {
-            return false;
-        }
-        
-        // Verifica se não há peças bloqueando o caminho
-        if (this.hasBlockingPieces(gameState, piece.position, newPosition)) {
-            return false;
-        }
-        
-        return true;
-    }
-
-    // Função de avaliação - mais importante!
-    evaluate(gameState) {
-        let score = 0;
-        
-        // 1. Progresso das peças (quanto mais perto do objetivo, melhor)
-        score += this.calculateProgressScore(gameState);
-        
-        // 2. Mobilidade (quantos movimentos possíveis)
-        score += this.calculateMobilityScore(gameState);
-        
-        // 3. Estratégia de bloqueio
-        score += this.calculateBlockingScore(gameState);
-        
-        // 4. Peças seguras vs vulneráveis
-        score += this.calculateSafetyScore(gameState);
-        
-        return score;
-    }
-
-    // Calcula score baseado no progresso das peças
-    calculateProgressScore(gameState) {
-        let progress = 0;
-        const aiPieces = gameState.getAIPieces();
-        const playerPieces = gameState.getPlayerPieces();
-        
-        // Progresso da IA (positivo)
-        for (const piece of aiPieces) {
-            progress += this.getDistanceToGoal(piece.position, 'ai');
-        }
-        
-        // Progresso do jogador (negativo)
-        for (const piece of playerPieces) {
-            progress -= this.getDistanceToGoal(piece.position, 'player') * 0.8;
-        }
-        
-        return progress;
-    }
-
-    // Calcula score baseado na mobilidade
-    calculateMobilityScore(gameState) {
-        const aiMobility = this.generatePossibleMoves(gameState, 6).length; // Usa dado 6 para máxima mobilidade
-        const playerMobility = this.generatePossibleMovesForPlayer(gameState, 6).length;
-        
-        return (aiMobility - playerMobility) * 2;
-    }
-
-    // Score baseado em bloqueios estratégicos
-    calculateBlockingScore(gameState) {
-        let blockingScore = 0;
-        // Implementar lógica de bloqueio baseada nas regras do Tâb
-        return blockingScore;
-    }
-
-    // Score baseado em segurança das peças
-    calculateSafetyScore(gameState) {
-        let safetyScore = 0;
-        // Implementar lógica de segurança
-        return safetyScore;
-    }
-
-    // Funções auxiliares (você precisará adaptar conforme sua implementação)
-    calculateNewPosition(currentPos, diceRoll) {
-        // Implementar cálculo da nova posição baseado nas regras do Tâb
-        return currentPos + diceRoll;
-    }
-
-    isWithinBoard(position) {
-        // Verificar se a posição está dentro do tabuleiro
-        return position >= 0 && position < this.boardSize;
-    }
-
-    hasBlockingPieces(gameState, fromPos, toPos) {
-        // Verificar se há peças bloqueando o caminho
-        for (let pos = fromPos + 1; pos < toPos; pos++) {
-            if (!gameState.isCellEmpty(pos)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    getDistanceToGoal(position, player) {
-        // Calcular distância até o objetivo
-        if (player === 'ai') {
-            return this.boardSize - 1 - position;
-        } else {
-            return position;
-        }
-    }
-
-    isGameOver(gameState) {
-        return gameState.isGameOver();
-    }
-
-    applyMove(gameState, move) {
-        // Criar uma cópia do estado e aplicar o movimento
-        const newState = gameState.clone();
-        newState.movePiece(move.pieceId, move.toPosition);
-        return newState;
-    }
-
-    simulateDiceRoll() {
-        return Math.floor(Math.random() * 6) + 1;
-    }
-
-    generatePossibleMovesForPlayer(gameState, diceRoll) {
-        // Similar ao generatePossibleMoves mas para o jogador humano
-        const moves = [];
-        const playerPieces = gameState.getPlayerPieces();
-        
-        for (const piece of playerPieces) {
-            if (this.isValidMove(gameState, piece, diceRoll)) {
-                moves.push({
-                    pieceId: piece.id,
-                    fromPosition: piece.position,
-                    toPosition: this.calculateNewPosition(piece.position, diceRoll),
-                    diceRoll: diceRoll
-                });
-            }
-        }
-        
-        return moves;
-    }
+  clone() {
+    const p = new Piece(this.player, this.row, this.col);
+    p.hasConverted = this.hasConverted;
+    p.hasEnteredOpponentHome = this.hasEnteredOpponentHome;
+    p.history = [...this.history];
+    return p;
+  }
 }
 
-// Integração com seu jogo existente
-class GameState {
-    constructor(boardSize = 7) {
-        this.boardSize = boardSize;
-        this.pieces = [];
-        this.currentPlayer = 'player1';
-        this.initializePieces();
-    }
+// ---------------------------------
+// 🎯 Estrutura do estado do jogo
+// ---------------------------------
+class State {
+  constructor(board, toMove) {
+    this.board = board;      // board externo (4xN)
+    this.toMove = toMove;    // "W" ou "B"
+    this.eliminated = { [WHITE]: 0, [BLACK]: 0 };
+  }
 
-    initializePieces() {
-        // Inicializar peças do jogador e da IA
-        for (let i = 0; i < 15; i++) {
-            // Peças do jogador (lado inferior)
-            this.pieces.push({ id: `player_${i}`, position: i, player: 'player' });
-            // Peças da IA (lado superior)
-            this.pieces.push({ id: `ai_${i}`, position: this.boardSize * this.boardSize - 1 - i, player: 'ai' });
-        }
-    }
+  clone() {
+    const clonedBoard = this.board.map(row => row.map(cell => cell ? cell.clone() : null));
+    const st = new State(clonedBoard, this.toMove);
+    st.eliminated = { ...this.eliminated };
+    return st;
+  }
 
-    getAIPieces() {
-        return this.pieces.filter(piece => piece.player === 'ai');
-    }
+  isTerminal() {
+    const whites = this.board.flat().filter(p => p && p.player === WHITE).length;
+    const blacks = this.board.flat().filter(p => p && p.player === BLACK).length;
+    return whites === 0 || blacks === 0;
+  }
 
-    getPlayerPieces() {
-        return this.pieces.filter(piece => piece.player === 'player');
-    }
-
-    isCellEmpty(position) {
-        return !this.pieces.some(piece => piece.position === position);
-    }
-
-    movePiece(pieceId, newPosition) {
-        const piece = this.pieces.find(p => p.id === pieceId);
-        if (piece) {
-            piece.position = newPosition;
-        }
-    }
-
-    isGameOver() {
-        const aiPieces = this.getAIPieces();
-        const playerPieces = this.getPlayerPieces();
-        
-        // Jogo acaba quando todas as peças de um jogador chegam ao objetivo
-        const aiWon = aiPieces.every(piece => this.hasReachedGoal(piece.position, 'ai'));
-        const playerWon = playerPieces.every(piece => this.hasReachedGoal(piece.position, 'player'));
-        
-        return aiWon || playerWon;
-    }
-
-    hasReachedGoal(position, player) {
-        if (player === 'ai') {
-            return position === 0; // Objetivo da IA (exemplo)
-        } else {
-            return position === this.boardSize * this.boardSize - 1; // Objetivo do jogador (exemplo)
-        }
-    }
-
-    clone() {
-        const newState = new GameState(this.boardSize);
-        newState.pieces = JSON.parse(JSON.stringify(this.pieces));
-        newState.currentPlayer = this.currentPlayer;
-        return newState;
-    }
+  evaluate() {
+    const whites = this.board.flat().filter(p => p && p.player === WHITE).length;
+    const blacks = this.board.flat().filter(p => p && p.player === BLACK).length;
+    return whites - blacks;
+  }
 }
 
-// Uso no seu jogo
-let aiPlayer = null;
-let gameState = null;
+// ---------------------------------
+// ⚙️ Funções auxiliares
+// ---------------------------------
 
-function initializeAI(difficulty = 'medium') {
-    aiPlayer = new TabAI(difficulty);
-    gameState = new GameState(); // Você precisará integrar com seu estado atual do jogo
+function inBounds(row, col, cols) {
+  return row >= 0 && row < ROWS && col >= 0 && col < cols;
 }
 
-function handleAITurn(diceRoll) {
-    if (!aiPlayer || !gameState) return;
-    
-    const aiMove = aiPlayer.makeMove(gameState, diceRoll);
-    
-    if (aiMove) {
-        // Executar o movimento da IA no seu jogo
-        setTimeout(() => {
-            executeAIMove(aiMove);
-        }, 1000); // Pequeno delay para parecer mais natural
+function getOpponent(player) {
+  return player === WHITE ? BLACK : WHITE;
+}
+
+function piecesInHomeRow(state, player) {
+  const row = player === WHITE ? 0 : ROWS - 1;
+  return state.board[row].filter(p => p && p.player === player).length;
+}
+
+// ---------------------------------
+// 🧠 Movimento das peças
+// ---------------------------------
+
+function generateMovesForThrow(state, throwVal, player) {
+  const moves = [];
+  const cols = state.board[0].length;
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < cols; c++) {
+      const piece = state.board[r][c];
+      if (!piece || piece.player !== player) continue;
+
+      // Regras 4: Primeira jogada só pode ser "tâb" (1)
+      if (!piece.hasConverted && throwVal !== 1) continue;
+
+      // Calcular destino
+      let newRow = r;
+      let newCol = c + throwVal;
+
+      // Movimento estilo "zig-zag" (como no Senet)
+      if (newCol >= cols) {
+        newRow = (r + 1) % ROWS;
+        newCol = newCol - cols;
+      }
+
+      if (!inBounds(newRow, newCol, cols)) continue;
+
+      const dest = state.board[newRow][newCol];
+
+      // Não pode mover para casa com peça da mesma equipa
+      if (dest && dest.player === player) continue;
+
+      // Regras 1 e 2: home rows e bloqueio
+      const opponentHome = player === WHITE ? 3 : 0;
+      const ownHome = player === WHITE ? 0 : 3;
+
+      // Bloquear avanço dentro da home adversária se ainda tiver peças na própria
+      if (
+        piece.hasEnteredOpponentHome &&
+        newRow === opponentHome &&
+        piecesInHomeRow(state, player) > 0
+      ) continue;
+
+      // Marcar se entra na home adversária
+      const enteringOpponentHome = newRow === opponentHome && !piece.hasEnteredOpponentHome;
+
+      // Regras 4: primeira jogada não pode ir para casa ocupada pelo mesmo jogador
+      if (!piece.hasConverted && dest && dest.player === player) continue;
+
+      moves.push({
+        piece, from: { r, c },
+        to: { r: newRow, c: newCol },
+        enteringOpponentHome,
+        convert: !piece.hasConverted && throwVal === 1
+      });
     }
+  }
+
+  // Regra 3: Pode passar a vez (opcional)
+  moves.push({ type: "PASS" });
+  return moves;
 }
 
-function executeAIMove(move) {
-    // Integrar com sua lógica de movimento existente
-    console.log("Executing AI move:", move);
-    // gameBoard.movePiece(move.pieceId, move.toPosition);
-    // updateGameBoard();
-    // switchTurn();
+function applyMove(state, move) {
+  if (move.type === "PASS") return state;
+
+  const newState = state.clone();
+  const p = newState.board[move.from.r][move.from.c];
+  if (!p) return newState;
+
+  // Limpar casa antiga
+  newState.board[move.from.r][move.from.c] = null;
+
+  // Captura se houver inimigo
+  const target = newState.board[move.to.r][move.to.c];
+  if (target && target.player !== p.player) {
+    newState.eliminated[target.player]++;
+  }
+
+  // Atualizar peça
+  p.row = move.to.r;
+  p.col = move.to.c;
+  if (move.convert) p.hasConverted = true;
+  if (move.enteringOpponentHome) p.hasEnteredOpponentHome = true;
+  if (!p.history.includes(move.to.r)) p.history.push(move.to.r);
+
+  // Colocar no destino
+  newState.board[move.to.r][move.to.c] = p;
+
+  // Mudar turno
+  newState.toMove = getOpponent(state.toMove);
+
+  return newState;
 }
+
+// ---------------------------------
+// 🎲 Expectimax (IA)
+// ---------------------------------
+
+async function expectimax(state, depth, maximizing) {
+  if (state.isTerminal() || depth === 0) return { value: state.evaluate(), best: null };
+  const player = state.toMove;
+
+  async function chanceNode(st, d, p) {
+    let expected = 0;
+    for (const [val, prob] of THROWS) {
+      const v = await valueAfterThrow(st, val, d, p);
+      expected += prob * v;
+    }
+    return expected;
+  }
+
+  async function valueAfterThrow(st, val, d, p) {
+    const moves = generateMovesForThrow(st, val, p);
+    if (!moves.length) {
+      const next = st.clone();
+      next.toMove = getOpponent(p);
+      return (await expectimax(next, d - 1, !maximizing)).value;
+    }
+
+    let bestVal = p === WHITE ? -Infinity : Infinity;
+    for (const m of moves) {
+      const next = applyMove(st, m);
+      const valEval = await chanceNode(next, d - 1, getOpponent(p));
+      if (p === WHITE) bestVal = Math.max(bestVal, valEval);
+      else bestVal = Math.min(bestVal, valEval);
+    }
+    return bestVal;
+  }
+
+  const best = await chanceNode(state, depth, player);
+  return { value: best, best: null };
+}
+
+// ---------------------------------
+// 🧠 Escolha de jogada da IA
+// ---------------------------------
+const AI_DEPTHS = { EASY: 1, MEDIUM: 3, HARD: 5 };
+
+async function chooseMoveAI(state, level = "MEDIUM") {
+  const normalized = (level || "MEDIUM").toString().toUpperCase();
+  const depth = AI_DEPTHS[normalized] || 3;
+  const moves = generateMovesForThrow(state, 1, state.toMove)
+    .concat(generateMovesForThrow(state, 2, state.toMove))
+    .concat(generateMovesForThrow(state, 3, state.toMove))
+    .concat(generateMovesForThrow(state, 4, state.toMove))
+    .concat(generateMovesForThrow(state, 6, state.toMove));
+
+  if (!moves.length) return { type: "PASS" };
+
+  // Aleatoriedade no nível fácil
+  if (normalized === "EASY" && Math.random() < 0.4) {
+    return moves[Math.floor(Math.random() * moves.length)];
+  }
+
+  // Avaliar movimentos
+  let bestVal = -Infinity;
+  let bestMove = moves[0];
+  for (const m of moves) {
+    const next = applyMove(state, m);
+    const { value } = await expectimax(next, depth - 1, false);
+    if (value > bestVal) {
+      bestVal = value;
+      bestMove = m;
+    }
+  }
+
+  return bestMove;
+}
+
+// ---------------------------------
+// Expose IA helpers to other scripts
+// ---------------------------------
+window.IA = window.IA || {};
+window.IA.chooseMoveAI = chooseMoveAI;
+window.IA.State = State;
+window.IA.Piece = Piece;
+window.IA.applyMove = applyMove;
+
+// Convert flat GameBoard.content (length cols*4) to IA State
+window.IA.fromGameBoard = function(content, cols, toMove) {
+  const board = Array.from({ length: ROWS }, () => Array(cols).fill(null));
+  for (let i = 0; i < content.length; i++) {
+    const cell = content[i];
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    if (cell && cell.player) {
+      // map 'player-1' / 'player-2' to WHITE / BLACK
+      const p = cell.player === 'player-1' ? WHITE : BLACK;
+      board[r][c] = new Piece(p, r, c);
+    }
+  }
+  const mover = toMove === 'player-1' ? WHITE : BLACK;
+  return new State(board, mover);
+};
+
+// Convert IA move to flat indices for the GameBoard
+window.IA.moveToIndices = function(move, cols) {
+  if (!move || move.type === 'PASS') return { type: 'PASS' };
+  return {
+    from: move.from.r * cols + move.from.c,
+    to: move.to.r * cols + move.to.c,
+    convert: move.convert,
+    enteringOpponentHome: move.enteringOpponentHome
+  };
+};
+
+window.IA.WHITE = WHITE;
+window.IA.BLACK = BLACK;
+

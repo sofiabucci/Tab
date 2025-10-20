@@ -24,12 +24,20 @@ setupForm.addEventListener('submit', e => {
   // Pass options to generateBoard so the board can be configured
   const options = {
     mode,
-    difficulty: mode === 'pvc' ? difficulty : null,
-    firstPlayer // 'player1' or 'player2'
+    difficulty: mode === 'pvc' ? (difficulty || 'medium') : null,
+    // normalize to 'player-1' or 'player-2' used by GameBoard
+    firstPlayer: firstPlayer === 'player2' ? 'player-2' : 'player-1'
   };
 
   if (typeof generateBoard === 'function') {
-    generateBoard(columns, options);
+    const gb = generateBoard(columns, options);
+    // If AI starts first in pvc mode, trigger a roll so AI can act (dice module will dispatch stickRoll when rolled)
+    if (options.mode === 'pvc' && options.firstPlayer === 'player-2') {
+      // If stickDiceLastRoll is available and has a value, dispatch manually; otherwise leave for user to roll
+      if (window.stickDiceLastRoll && typeof document !== 'undefined') {
+        document.dispatchEvent(new CustomEvent('stickRoll', { detail: window.stickDiceLastRoll }));
+      }
+    }
   } else {
     // Fallback: try creating GameBoard directly if generateBoard isn't available
     if (window.GameBoard) {
