@@ -63,7 +63,9 @@ class GameBoard {
                 if (this.options.mode === 'pvpo') {
                     if (typeof window.localPlayer !== 'undefined' && window.localPlayer !== this.currentPlayer) return;
                 }
-                if (this.play) this.play(i);
+
+                // Delegate to the board move handler which will check for a pending dice roll
+                if (typeof this.handleMove === 'function') this.handleMove(i);
             });
 
             this.boardElements[i] = cell;  
@@ -110,18 +112,28 @@ class GameBoard {
         // Render initial state
         this.render();
 
-        // Listen to stickRoll events from dice.js to drive turns
-            document.addEventListener('stickRoll', async (e) => {
-                const roll = e.detail; // { value, repeats, ... }
-                // PvAI: AI acts on player-2 turn
-                if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
-                    await this.handleAIMove(roll.value, roll.repeats);
-                }
-                // PvOnline: placeholder for networked dice roll handling
-                if (this.options.mode === 'pvpo') {
-                    // TODO: send dice roll to server or process remote roll
-                }
-            });
+        // Keep the last dice roll until it's consumed by a move
+        this.pendingRoll = null;
+
+        // Stored handler so we can remove it in cleanup
+        this.handleStickRoll = async (e) => {
+            const roll = e.detail; // { value, repeats, ... }
+            // Store pending roll for player interaction
+            this.pendingRoll = roll;
+
+            // If AI should act immediately (AI is the current player), let it act
+            if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
+                await this.handleAIMove(roll.value, roll.repeats);
+                // If the AI consumed the roll and allowed repeats, dice.js will dispatch another stickRoll when rolled again.
+                this.pendingRoll = null;
+            }
+
+            // PvOnline: placeholder for networked dice roll handling
+            if (this.options.mode === 'pvpo') {
+                // TODO: send dice roll to server or process remote roll
+            }
+        };
+        document.addEventListener('stickRoll', this.handleStickRoll);
 
     }
 
@@ -142,17 +154,69 @@ class GameBoard {
         }
     }
 
+    // Handle a move triggered by clicking a piece cell. It consumes pendingRoll if present.
+    handleMove(fromIndex) {
+        // Must have a pending roll to move
+        if (!this.pendingRoll) return false;
+
+        const piece = this.content[fromIndex];
+        if (!piece || piece.player !== this.currentPlayer) return false;
+
+        const rollValue = this.pendingRoll.value;
+        const repeats = !!this.pendingRoll.repeats;
+
+        const valid = this.getValidMoves(fromIndex, rollValue);
+        if (!valid.length) return false;
+
+        const toIndex = valid[0];
+
+        // Apply move; if repeats allowed and roll indicates repeats, keep turn
+        const keepTurn = repeats;
+        const ok = this.applyMoveIndices(fromIndex, toIndex, keepTurn);
+
+        // Clear pending roll if it's consumed (if no repeats or move applied)
+        if (!repeats || !ok) this.pendingRoll = null;
+
+        return ok;
+    }
+
+    // Return array of valid destination indices for a piece at fromIndex given rollValue
+    getValidMoves(fromIndex, rollValue) {
+        const validMoves = [];
+        const piece = this.content[fromIndex];
+        if (!piece) return validMoves;
+
+        const fromCol = fromIndex % this.cols;
+        const fromRow = Math.floor(fromIndex / this.cols);
+
+        let newCol = fromCol + rollValue;
+        let newRow = fromRow;
+
+        if (newCol >= this.cols) {
+            newRow = (fromRow + 1) % 4;
+            newCol = newCol - this.cols;
+        }
+
+        if (newRow >= 0 && newRow < 4 && newCol >= 0 && newCol < this.cols) {
+            const toIndex = newRow * this.cols + newCol;
+            const dest = this.content[toIndex];
+            if (!dest || dest.player !== piece.player) validMoves.push(toIndex);
+        }
+
+        return validMoves;
+    }
+
     // Apply a move given flat indices
-    applyMoveIndices(fromIdx, toIdx) {
+    applyMoveIndices(fromIdx, toIdx, keepTurn = false) {
         const piece = this.content[fromIdx];
         if (!piece) return false;
         // capture logic: replace destination
         this.content[fromIdx] = null;
         this.content[toIdx] = { player: piece.player };
-        // flip current player
-        this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
+        // flip current player unless keeping turn (replay allowed)
+        if (!keepTurn) this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
         this.render();
-        // Emit moveEnded so dice resets
+        // Emit moveEnded so dice resets in UI
         document.dispatchEvent(new CustomEvent('moveEnded'));
         return true;
     }
@@ -192,10 +256,8 @@ function generateBoard(columns, options = {}) {
     return window._currentGameBoard;
 }
 
-// Initial load with default columns (9)
-window.onload = function() {
-    generateBoard(9, { firstPlayer: 'player1', mode: 'pvp', difficulty: null, algorithm: null });
-}
+// Note: board is created when the setup form is submitted (generateBoard).
+// We intentionally do not auto-create a board here so the user can configure options first.
 
 // Expose generateBoard and GameBoard to global scope
 window.generateBoard = generateBoard;

@@ -30,4 +30,48 @@ document.addEventListener('DOMContentLoaded', function() {
       e.stopPropagation();
     });
   });
+
+  // Auto-open setup modal on first load so the user configures and starts the game
+  const setupModal = document.getElementById('setupModal');
+  // Open the setup modal immediately on load so the user configures the game first.
+  if (setupModal) setupModal.classList.remove('hidden');
+
+  // Enhance Play button: if a game is running, allow quitting and starting a new one.
+  const playBtn = document.getElementById('playBtn');
+  if (playBtn) {
+    playBtn.addEventListener('click', () => {
+      console.log('Play button clicked');
+      // If modal is currently visible, treat the Play click as "submit setup and start game"
+      const setupForm = document.getElementById('setupForm');
+      const isModalVisible = setupModal && !setupModal.classList.contains('hidden');
+
+      if (isModalVisible) {
+        console.log('Setup modal is visible — submitting setup form to start game');
+        // cleanup existing game before starting a new one
+        try {
+          if (window._currentGameBoard && typeof window._currentGameBoard.cleanup === 'function') {
+            window._currentGameBoard.cleanup();
+          }
+        } catch (err) {
+          console.warn('Error cleaning up existing game:', err);
+        }
+        const parent = document.getElementById('board-container');
+        if (parent) parent.innerHTML = '';
+
+        if (setupForm) {
+          // Prefer requestSubmit if available (preserves form validation and events)
+          if (typeof setupForm.requestSubmit === 'function') setupForm.requestSubmit();
+          else setupForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        } else {
+          // If no form found, just close modal
+          setupModal.classList.add('hidden');
+        }
+
+        return;
+      }
+
+      // Otherwise open the setup modal so user can configure
+      if (setupModal) setupModal.classList.remove('hidden');
+    });
+  }
 });
