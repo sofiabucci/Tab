@@ -27,23 +27,28 @@ setupForm.addEventListener('submit', e => {
     difficulty: mode === 'pvc' ? (difficulty || 'medium') : null,
     // normalize to 'player-1' or 'player-2' used by GameBoard
     firstPlayer: firstPlayer === 'player2' ? 'player-2' : 'player-1'
+    ,algorithm: mode === 'pvc' ? 'MINIMAX' : null
   };
 
+  // Set global IA algorithm for runtime
+  if (mode === 'pvc') {
+    window.IA = window.IA || {};
+    window.IA.algorithm = 'MINIMAX';
+  }
+
+  // Always clear board container before creating new board
+  const parent = document.getElementById('board-container');
+  if (parent) parent.innerHTML = '';
   if (typeof generateBoard === 'function') {
     const gb = generateBoard(columns, options);
     // If AI starts first in pvc mode, trigger a roll so AI can act (dice module will dispatch stickRoll when rolled)
     if (options.mode === 'pvc' && options.firstPlayer === 'player-2') {
-      // If stickDiceLastRoll is available and has a value, dispatch manually; otherwise leave for user to roll
       if (window.stickDiceLastRoll && typeof document !== 'undefined') {
         document.dispatchEvent(new CustomEvent('stickRoll', { detail: window.stickDiceLastRoll }));
       }
     }
   } else {
-    // Fallback: try creating GameBoard directly if generateBoard isn't available
     if (window.GameBoard) {
-      // remove existing board container content before creating
-      const parent = document.getElementById('board-container');
-      parent.innerHTML = '';
       new GameBoard('board-container', columns, options);
     }
   }

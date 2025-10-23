@@ -95,7 +95,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Hook the UI button/area
   if (rollDiceBtn) {
-    rollDiceBtn.addEventListener('click', () => rollOnce());
+    rollDiceBtn.addEventListener('click', () => {
+      // Only allow dice roll for correct player in PvP and PvOnline
+      let allow = true;
+      if (window._currentGameBoard && window._currentGameBoard.options) {
+        const mode = window._currentGameBoard.options.mode;
+        const currentPlayer = window._currentGameBoard.currentPlayer;
+        // PvP: only allow roll for current player (assume player-1 is human, player-2 is second human)
+        if (mode === 'pvp') {
+          // Optionally, you can check which local player is acting (if you have a UI for player switching)
+          // For now, always allow roll (can be improved with player login)
+        }
+        // PvOnline: only allow roll for local player
+        if (mode === 'pvpo') {
+          if (typeof window.localPlayer !== 'undefined' && window.localPlayer !== currentPlayer) allow = false;
+        }
+        // PvAI: only allow roll for player-1 (human)
+        if (mode === 'pvc' && currentPlayer !== 'player-1') allow = false;
+      }
+      if (allow) rollOnce();
+    });
   }
 
   // Initialize display

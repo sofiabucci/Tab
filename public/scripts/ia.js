@@ -246,7 +246,22 @@ async function chooseMoveAI(state, level = "MEDIUM") {
   let bestMove = moves[0];
   for (const m of moves) {
     const next = applyMove(state, m);
-    const { value } = await expectimax(next, depth - 1, false);
+    // Choose algorithm based on runtime flag (default: EXPECTIMAX)
+    let value;
+    const algo = (window.IA && window.IA.algorithm) ? window.IA.algorithm : 'EXPECTIMAX';
+    if (algo === 'MINIMAX') {
+      // Use deterministic minimax: pick the most likely throw as the fixed throw value
+      const mostLikelyThrow = (function(){
+        let best = THROWS[0];
+        for (const t of THROWS) if (t[1] > best[1]) best = t;
+        return best[0];
+      })();
+      value = minimax(next, depth - 1, false, mostLikelyThrow).value;
+    } else {
+      // Default to expectimax
+      const res = await expectimax(next, depth - 1, false);
+      value = res.value;
+    }
     if (value > bestVal) {
       bestVal = value;
       bestMove = m;
@@ -254,6 +269,47 @@ async function chooseMoveAI(state, level = "MEDIUM") {
   }
 
   return bestMove;
+}
+
+// ---------------------------------
+// 🔁 Minimax (deterministic) implementation
+// ---------------------------------
+function minimax(state, depth, maximizing, throwVal) {
+  if (state.isTerminal() || depth === 0) return { value: state.evaluate(), best: null };
+  const player = state.toMove;
+
+  const moves = generateMovesForThrow(state, throwVal, player);
+  if (!moves.length) {
+    const next = state.clone();
+    next.toMove = getOpponent(player);
+    return minimax(next, depth - 1, !maximizing, throwVal);
+  }
+
+  if (player === WHITE) {
+    let bestVal = -Infinity;
+    let bestMove = moves[0];
+    for (const m of moves) {
+      const next = applyMove(state, m);
+      const res = minimax(next, depth - 1, false, throwVal);
+      if (res.value > bestVal) {
+        bestVal = res.value;
+        bestMove = m;
+      }
+    }
+    return { value: bestVal, best: bestMove };
+  } else {
+    let bestVal = Infinity;
+    let bestMove = moves[0];
+    for (const m of moves) {
+      const next = applyMove(state, m);
+      const res = minimax(next, depth - 1, true, throwVal);
+      if (res.value < bestVal) {
+        bestVal = res.value;
+        bestMove = m;
+      }
+    }
+    return { value: bestVal, best: bestMove };
+  }
 }
 
 // ---------------------------------

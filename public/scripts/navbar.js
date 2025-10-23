@@ -6,10 +6,11 @@ document.addEventListener('DOMContentLoaded', function() {
     loginBtn: 'loginModal'
   };
 
-  // Abrir modais
+  // Abrir modais (guard checks in case some elements are missing)
   for (const [btnId, modalId] of Object.entries(modalMap)) {
     const btn = document.getElementById(btnId);
     const modal = document.getElementById(modalId);
+    if (!btn || !modal) continue;
 
     btn.addEventListener('click', () => modal.classList.remove('hidden'));
   }

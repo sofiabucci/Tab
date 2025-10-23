@@ -13,11 +13,17 @@ class GameBoard {
         this.options = {
             mode: options.mode || 'pvp', // 'pvp' | 'pvc' | 'pvpo'
             difficulty: options.difficulty || 'medium',
-            firstPlayer: options.firstPlayer || 'player1'
-        };
+            // Accept 'player1'|'player2' or 'player-1'|'player-2'
+            firstPlayer: (function(fp){
+                if (!fp) return 'player-1';
+                if (fp === 'player1' || fp === 'player-1') return 'player-1';
+                if (fp === 'player2' || fp === 'player-2') return 'player-2';
+                return 'player-1';
+    })(options.firstPlayer)
+    };
 
         // Set starting player code: 'player-1' or 'player-2'
-        this.currentPlayer = this.options.firstPlayer === 'player2' ? 'player-2' : 'player-1';
+        this.currentPlayer = this.options.firstPlayer === 'player-2' ? 'player-2' : 'player-1';
 
         const parent = document.getElementById(id);
         // Clear existing board if present
@@ -46,8 +52,19 @@ class GameBoard {
                 cell.appendChild(token);
             }
 
-            // Add click event
-            cell.addEventListener('click', () => this.play && this.play(i));
+            // Add click event: restrict by mode and current player
+            cell.addEventListener('click', () => {
+                // PvP: only allow current player to move their own pieces
+                if (this.options.mode === 'pvp') {
+                    const piece = this.content[i];
+                    if (!piece || piece.player !== this.currentPlayer) return;
+                }
+                // PvOnline: only allow moves if local player matches currentPlayer (placeholder, needs network wiring)
+                if (this.options.mode === 'pvpo') {
+                    if (typeof window.localPlayer !== 'undefined' && window.localPlayer !== this.currentPlayer) return;
+                }
+                if (this.play) this.play(i);
+            });
 
             this.boardElements[i] = cell;  
         }
@@ -56,26 +73,55 @@ class GameBoard {
         // We'll use objects like { player: 'player-1' } or null
         this.content.fill(null);
 
-        // Place initial pieces: for now 5 per side in first columns for visual parity with IA
-        for (let c = 0; c < 5 && c < this.cols; c++) {
-            // row 0 -> indices 0..cols-1  (player-2 visual above)
+        // Place 15 pieces per player, filling left-to-right then top-to-bottom if columns < 15
+        let placedP2 = 0;
+        let placedP1 = 0;
+        for (let c = 0; c < this.cols && placedP2 < 15; c++) {
             this.content[c] = { player: 'player-2' };
-            // row 3 -> last row indices
+            placedP2++;
+        }
+        for (let c = 0; c < this.cols && placedP1 < 15; c++) {
             const idx = 3*this.cols + c;
             this.content[idx] = { player: 'player-1' };
+            placedP1++;
+        }
+        // If columns < 15, continue filling next available cells in row 0 and row 3
+        let extraP2 = 15 - placedP2;
+        let extraP1 = 15 - placedP1;
+        let col = 0;
+        while (extraP2 > 0) {
+            // wrap to next available cell in row 0
+            if (!this.content[col]) {
+                this.content[col] = { player: 'player-2' };
+                extraP2--;
+            }
+            col = (col + 1) % this.cols;
+        }
+        col = 0;
+        while (extraP1 > 0) {
+            const idx = 3*this.cols + col;
+            if (!this.content[idx]) {
+                this.content[idx] = { player: 'player-1' };
+                extraP1--;
+            }
+            col = (col + 1) % this.cols;
         }
 
         // Render initial state
         this.render();
 
         // Listen to stickRoll events from dice.js to drive turns
-        document.addEventListener('stickRoll', async (e) => {
-            const roll = e.detail; // { value, repeats, ... }
-            // If game mode is player vs computer and it's AI's turn, trigger AI move(s)
-            if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
-                await this.handleAIMove(roll.value, roll.repeats);
-            }
-        });
+            document.addEventListener('stickRoll', async (e) => {
+                const roll = e.detail; // { value, repeats, ... }
+                // PvAI: AI acts on player-2 turn
+                if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
+                    await this.handleAIMove(roll.value, roll.repeats);
+                }
+                // PvOnline: placeholder for networked dice roll handling
+                if (this.options.mode === 'pvpo') {
+                    // TODO: send dice roll to server or process remote roll
+                }
+            });
 
     }
 
@@ -148,7 +194,7 @@ function generateBoard(columns, options = {}) {
 
 // Initial load with default columns (9)
 window.onload = function() {
-    generateBoard(9, { firstPlayer: 'player1' });
+    generateBoard(9, { firstPlayer: 'player1', mode: 'pvp', difficulty: null, algorithm: null });
 }
 
 // Expose generateBoard and GameBoard to global scope
