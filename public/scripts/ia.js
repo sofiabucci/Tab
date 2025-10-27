@@ -77,29 +77,30 @@ window.IA = {
     },
 
     calculateTargetPosition(state, fromRow, fromCol, steps) {
-        let row = fromRow;
-        let col = fromCol;
-        let remaining = steps;
+      let row = fromRow;
+      let col = fromCol;
+      let remaining = steps;
 
-        while (remaining > 0) {
-            const direction = (row === 0 || row === 2) ? 1 : -1;
-            col += direction;
+      while (remaining > 0) {
+          // CORREÇÃO: Mesma lógica de direções do board principal
+          const direction = (row === 0 || row === 2) ? -1 : 1;
+          col += direction;
 
-            if (col < 0) {
-                if (row === 1) { row = 0; col = 0; }
-                else if (row === 3) { row = 2; col = state.cols - 1; }
-                else return null;
-            } else if (col >= state.cols) {
-                if (row === 0) { row = 1; col = state.cols - 1; }
-                else if (row === 2) { row = 3; col = 0; }
-                else return null;
-            }
+          if (col < 0) {
+              if (row === 0) { row = 1; col = 0; }
+              else if (row === 2) { row = 3; col = state.cols - 1; }
+              else return null;
+          } else if (col >= state.cols) {
+              if (row === 1) { row = 0; col = state.cols - 1; }
+              else if (row === 3) { row = 2; col = 0; }
+              else return null;
+          }
 
-            remaining--;
-        }
+          remaining--;
+      }
 
-        return { r: row, c: col };
-    },
+      return { r: row, c: col };
+  },
 
     isValidMove(state, piece, target) {
         const targetPiece = state.board[target.r][target.c];

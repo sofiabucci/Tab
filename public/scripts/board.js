@@ -39,43 +39,90 @@ class GameBoard {
     }
 
     setupPieces() {
-        // Player 2 (top row) - da direita para esquerda
+    // Player 2 (top row - linha 0) - PRIMEIRA PEÇA NO SENTIDO DA LINHA (←)
         for (let c = 0; c < this.cols; c++) {
-            this.content[this.cols - 1 - c] = { 
+            this.content[c] = { 
                 player: 'player-2',
                 hasConverted: false 
             };
         }
-        // Player 1 (bottom row) - da direita para esquerda  
+        // Player 1 (bottom row - linha 3) - PRIMEIRA PEÇA NO SENTIDO DA LINHA (→)
         for (let c = 0; c < this.cols; c++) {
-            this.content[3 * this.cols + (this.cols - 1 - c)] = { 
+            this.content[3 * this.cols + c] = { 
                 player: 'player-1',
                 hasConverted: false 
             };
         }
     }
 
+    // CORREÇÃO: Direções corrigidas conforme especificado
+    getMovementDirection(row) {
+    // CORREÇÃO: Direções conforme especificado
+    // Linha 0: ← (esquerda)
+    // Linha 1: → (direita) 
+    // Linha 2: ← (esquerda)
+    // Linha 3: → (direita)
+        return (row === 0 || row === 2) ? -1 : 1;   
+    }
+
     calculateMove(fromIndex, steps) {
-        let row = Math.floor(fromIndex / this.cols);
-        let col = fromIndex % this.cols;
+        if (fromIndex === null || fromIndex === undefined) return null;
         
-        for (let i = 0; i < steps; i++) {
-            const direction = (row === 0 || row === 2) ? 1 : -1;
-            col += direction;
-            
-            // Transições entre linhas
-            if (col < 0) {
-                if (row === 1) { row = 0; col = 0; }
-                else if (row === 3) { row = 2; col = this.cols - 1; }
-                else return null;
-            } else if (col >= this.cols) {
-                if (row === 0) { row = 1; col = this.cols - 1; }
-                else if (row === 2) { row = 3; col = 0; }
-                else return null;
+        const fromRow = Math.floor(fromIndex / this.cols);
+        const fromCol = fromIndex % this.cols;
+        const player = this.content[fromIndex]?.player;
+        
+        if (!player) return null;
+
+        let currentRow = fromRow;
+        let currentCol = fromCol;
+        let remainingSteps = steps;
+
+        while (remainingSteps > 0) {
+            const direction = this.getMovementDirection(currentRow);
+            let nextCol = currentCol + direction;
+            let nextRow = currentRow;
+
+            // CORREÇÃO: Transições entre linhas ajustadas
+            if (nextCol < 0) {
+                // Borda esquerda
+                if (currentRow === 0) {
+                    // Da linha 0 (←) vai para linha 1 (→) na coluna 0
+                    nextRow = 1;
+                    nextCol = 0;
+                } else if (currentRow === 2) {
+                    // Da linha 2 (←) vai para linha 3 (→) na coluna 0
+                    nextRow = 3;
+                    nextCol = 0;
+                } else {
+                    return null;
+                }
+            } else if (nextCol >= this.cols) {
+                // Borda direita
+                if (currentRow === 1) {
+                    // Da linha 1 (→) vai para linha 0 (←) na última coluna
+                    nextRow = 0;
+                    nextCol = this.cols - 1;
+                } else if (currentRow === 3) {
+                    // Da linha 3 (→) vai para linha 2 (←) na última coluna
+                    nextRow = 2;
+                    nextCol = this.cols - 1;
+                } else {
+                    return null;
+                }
             }
+
+            // Verificar limites de segurança
+            if (nextRow < 0 || nextRow >= 4 || nextCol < 0 || nextCol >= this.cols) {
+                return null;
+            }
+
+            currentRow = nextRow;
+            currentCol = nextCol;
+            remainingSteps--;
         }
-        
-        return row * this.cols + col;
+
+        return currentRow * this.cols + currentCol;
     }
 
     handleClick(i) {
@@ -198,33 +245,32 @@ class GameBoard {
     }
 
     showVictoryModal(winner, isResign = false) {
-    const modal = document.getElementById('victoryModal');
-    const message = document.getElementById('victoryMessage');
-    const reason = document.getElementById('victoryReason');
-    
-    if (modal && message && reason) {
-        message.innerHTML = `<strong>${winner} wins!</strong>`;
-        reason.textContent = isResign ? 'Player resigned' : 'All pieces captured';
-        modal.classList.remove('hidden');
+        const modal = document.getElementById('victoryModal');
+        const message = document.getElementById('victoryMessage');
+        const reason = document.getElementById('victoryReason');
         
-        // Configurar botões
-        document.getElementById('newGameFromVictory').onclick = () => {
-            modal.classList.add('hidden');
-            this.showSetupModal();
-        };
-        
-        document.getElementById('closeVictoryModal').onclick = () => {
-            modal.classList.add('hidden');
-        };
-      }
+        if (modal && message && reason) {
+            message.innerHTML = `<strong>${winner} wins!</strong>`;
+            reason.textContent = isResign ? 'Player resigned' : 'All pieces captured';
+            modal.classList.remove('hidden');
+            
+            // Configurar botões
+            document.getElementById('newGameFromVictory').onclick = () => {
+                modal.classList.add('hidden');
+                this.showSetupModal();
+            };
+            
+            document.getElementById('closeVictoryModal').onclick = () => {
+                modal.classList.add('hidden');
+            };
+        }
     }
-
 
     showSetupModal() {
-    const setupModal = document.getElementById('setupModal');
-    if (setupModal) {
-        setupModal.classList.remove('hidden');
-    }
+        const setupModal = document.getElementById('setupModal');
+        if (setupModal) {
+            setupModal.classList.remove('hidden');
+        }
     }
 
     checkGameEnd() {
@@ -310,8 +356,11 @@ function setupActionButtons() {
     
     if (resignBtn) {
         resignBtn.onclick = () => {
-            window.game.resign();
-                
+            if (window.game) {
+                if (confirm('Are you sure you want to resign?')) {
+                    window.game.resign();
+                }
+            }
         };
     }
 }
