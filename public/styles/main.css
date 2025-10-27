@@ -1,5 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Freckle+Face&display=swap');
 
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --light-paper: #f4f1ea;
+    --light-wood: #d2b48c;
+    --dark-wood: #8b5a2b;
+}
+
 body {
   margin: 0;
   background-color: #d2b48c;
@@ -10,6 +23,7 @@ body {
 img{
   width: 80px;
 }
+
 /* NAVBAR */
 .navbar {
   display: flex;
@@ -19,11 +33,13 @@ img{
   padding: 15px 40px;
   box-shadow: 0 3px 8px rgba(0,0,0,0.3);
 }
+
 .nav-links {
   list-style: none;
   display: flex;
   gap: 25px;
 }
+
 .nav-links li span {
   cursor: pointer;
   color: white;
@@ -31,6 +47,7 @@ img{
   font-size: 1.2rem; 
   transition: all 0.2s ease-in-out; 
 }
+
 .nav-links li span:hover {
   color: #402200;
   transform: scale(1.5);
@@ -38,23 +55,141 @@ img{
   text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
 }
 
-
-/* Seção do jogo - MODIFICADO */
+/* Seção do jogo - CORRIGIDO */
 #gameSection {
   display: flex;
   justify-content: center; 
-  align-items: center; /* Centraliza verticalmente */
+  align-items: center;
   gap: 40px;
   position: relative;
-  height: calc(100vh - 150px); /* Ocupa altura total menos a navbar */
-  margin-top: 0; /* Remove margin-top anterior */
+  height: calc(100vh - 150px);
+  margin-top: 0;
+  padding: 0 20px;
+  flex-wrap: wrap;
 }
 
-/* Dice container */
-.dice-container {
+/* Board container - à esquerda (FLEXÍVEL) */
+.board-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: fit-content;
+  width: fit-content;
+  flex: 0 0 auto;
+}
+
+/* Container direito - organiza verticalmente */
+.right-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 30px;
+  flex: 0 0 auto;
+  min-width: 250px;
+}
+
+/* Player info container - acima da caixa de mensagens */
+.player-info-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.player-info-box {
+  background-color: #8b5a2b;
+  color: white;
+  border-radius: 15px;
+  padding: 15px 20px;
+  text-align: center;
+  min-width: 200px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-info-item {
   display: flex;
   align-items: center;
-  height: 100%;
+  justify-content: center;
+  gap: 10px;
+  font-size: 1rem;
+}
+
+.player-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid black;
+}
+
+.player-1-color {
+  background: white;
+}
+
+.player-2-color {
+  background: maroon;
+}
+
+/* Message container - abaixo do player info */
+.message-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.message-box {
+  background-color: #8b5a2b;
+  color: white;
+  border-radius: 15px;
+  padding: 20px 25px;
+  text-align: center;
+  min-width: 200px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* Container dos botões - MESMA COR DAS CAIXAS */
+.functionsGame {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.functionsGame .game-action-btn {
+  background-color: #8b5a2b; /* MESMA COR DAS CAIXAS */
+  color: white; /* TEXTO BRANCO */
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: 'Freckle Face', system-ui;
+  transition: all 0.2s ease-in-out;
+  min-width: 100px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.functionsGame .game-action-btn:hover {
+  background-color: #a56b3a; /* COR MAIS CLARA NO HOVER */
+  transform: scale(1.1);
+}
+
+.functionsGame .game-action-btn:disabled {
+  background-color: #6b4519;
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.6;
+}
+
+/* Dice container - abaixo dos botões */
+.dice-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .dice-box {
@@ -63,7 +198,7 @@ img{
   border-radius: 15px;
   padding: 20px 25px;
   text-align: center;
-  min-width: 100px;
+  min-width: 120px;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   display: flex;
   flex-direction: column;
@@ -79,8 +214,8 @@ img{
   transition: all 0.2s ease-in-out;
   min-width: 80px;
   min-height: 48px;
-  font-size: 1.25rem; /* larger font for Roll */
-  color: white; /* make text white */
+  font-size: 1.25rem;
+  color: white;
   font-weight: 700;
 }
 
@@ -88,30 +223,38 @@ img{
   transform: scale(1.50);
 }
 
-#rollDiceBtn img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
 #diceResult { 
   margin-top: 10px; 
-  font-size: 1rem; /* reduced from 1.5rem */
+  font-size: 1rem;
   font-weight: bold;
   min-height: 24px;
   color: white;
 }
 
 /* MODAL */
-.modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); display:flex; justify-content:center; align-items:center; z-index:999; }
-.modal.hidden { display: none; }
+.modal { 
+  position: fixed; 
+  top:0; 
+  left:0; 
+  width:100%; 
+  height:100%; 
+  background: rgba(0,0,0,0.6); 
+  display:flex; 
+  justify-content:center; 
+  align-items:center; 
+  z-index:999; 
+}
+
+.modal.hidden { 
+  display: none; 
+}
 
 /* SETUP CONTAINER */
 .setup-container {
   background-color: #8b5a2b;
   border-radius: 30px;
   width: 500px;
-  padding: 50px 40px;
+  padding: 30px 40px 50px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
@@ -122,7 +265,7 @@ img{
 /* Título */
 .setup-container h2 {
   font-size: 2rem;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   text-align: center;
   letter-spacing: 2px;
 }
@@ -191,7 +334,7 @@ button:hover {
   transform: scale(1.05);
 }
 
-/* INPUTS ESTILIZADOS - ADICIONE ESTE CÓDIGO */
+/* INPUTS ESTILIZADOS */
 input[type="text"],
 input[type="password"] {
   background-color: #d2b48c;
@@ -243,44 +386,4 @@ input::placeholder {
   transform: scale(1.05);
 }
 
-/* Responsividade */
-@media (max-width: 900px) {
-  body {
-    flex-direction: column;
-    justify-content: center;
-    padding: 20px;
-    gap: 40px;
-  }
-
-  img {
-    margin-bottom: 20px;
-    max-width: 250px;
-  }
-
-  .setup-container {
-    width: 100%;
-    max-width: 400px;
-  }
-}
-
-
-/* SETUP CONTAINER - MODIFICADO */
-.setup-container {
-  background-color: #8b5a2b;
-  border-radius: 30px;
-  width: 500px;
-  padding: 30px 40px 50px; /* Reduzi o top para 30px, mantém laterais 40px e bottom 50px */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: white;
-}
-
-/* Título - MODIFICADO */
-.setup-container h2 {
-  font-size: 2rem;
-  margin-bottom: 20px; /* Reduzi de 30px para 20px */
-  text-align: center;
-  letter-spacing: 2px;
-}
+ 
