@@ -89,6 +89,40 @@ function piecesInHomeRow(state, player) {
 // 🧠 Movimento das peças
 // ---------------------------------
 
+// Converte row/col -> linear index (row-major)
+function rowColToIndex(row, col, cols) {
+  return row * cols + col;
+}
+function indexToRowCol(index, cols) {
+  return { row: Math.floor(index / cols), col: index % cols };
+}
+
+// Cria caminho zig-zag (serpenteante) de length ROWS*cols,
+// devolve array de linear indices (ex: [0,1,2,...,cols-1, 2*cols-1, 2*cols-2,...])
+function buildZigZagPath(cols) {
+  const path = [];
+  for (let r = 0; r < ROWS; r++) {
+    if (r % 2 === 0) {
+      for (let c = 0; c < cols; c++) path.push(rowColToIndex(r, c, cols));
+    } else {
+      for (let c = cols - 1; c >= 0; c--) path.push(rowColToIndex(r, c, cols));
+    }
+  }
+  return path;
+}
+
+// Dado um estado e a posição (r,c) de uma peça, retorna o índice no path (procura linearmente)
+function findPathIndexForPos(state, row, col) {
+  const cols = state.board[0].length;
+  if (!state._zigzagPath || state._zigzagCols !== cols) {
+    // cache no state para não reconstruir sempre
+    state._zigzagPath = buildZigZagPath(cols);
+    state._zigzagCols = cols;
+  }
+  const linear = rowColToIndex(row, col, cols);
+  return state._zigzagPath.indexOf(linear);
+}
+
 function generateMovesForThrow(state, throwVal, player) {
   const moves = [];
   const cols = state.board[0].length;
@@ -275,7 +309,12 @@ window.IA.fromGameBoard = function(content, cols, toMove) {
     if (cell && cell.player) {
       // map 'player-1' / 'player-2' to WHITE / BLACK
       const p = cell.player === 'player-1' ? WHITE : BLACK;
-      board[r][c] = new Piece(p, r, c);
+      const piece = new Piece(p, r, c);
+      // Restore IA-specific flags if present on the board content
+      if (cell.hasConverted) piece.hasConverted = !!cell.hasConverted;
+      if (cell.hasEnteredOpponentHome) piece.hasEnteredOpponentHome = !!cell.hasEnteredOpponentHome;
+      if (Array.isArray(cell.history)) piece.history = [...cell.history];
+      board[r][c] = piece;
     }
   }
   const mover = toMove === 'player-1' ? WHITE : BLACK;

@@ -46,22 +46,23 @@ class GameBoard {
             cell.dataset.index = i;
             board.appendChild(cell);
 
-            cell.addEventListener('click', () => this.play && this.play(i));
+            // Use handleCellClick (selection -> move flow)
+            cell.addEventListener('click', () => this.handleCellClick && this.handleCellClick(i));
             this.boardElements[i] = cell;  
         }
 
         // Initialize content array
         this.content.fill(null);
 
-        // Place initial pieces
+        // Place initial pieces and include IA metadata fields so moves persist correctly
         for (let c = 0; c < this.cols; c++) {
-            // Player 2 (top row)
-            this.content[c] = { player: 'player-2' };
+            // Player 2 (top row) -> row 0
+            this.content[c] = { player: 'player-2', hasConverted: false, hasEnteredOpponentHome: false, history: [0] };
             this.pieceStates[c] = 'unmoved';
             
-            // Player 1 (bottom row)
+            // Player 1 (bottom row) -> row 3
             const idx = 3*this.cols + c;
-            this.content[idx] = { player: 'player-1' };
+            this.content[idx] = { player: 'player-1', hasConverted: false, hasEnteredOpponentHome: false, history: [3] };
             this.pieceStates[idx] = 'unmoved';
         }
 
@@ -77,6 +78,106 @@ class GameBoard {
                 }, 500);
             }
         });
+    }
+
+    // Selection state for click-based moves
+    selectedFrom = null;
+    selectedTarget = null;
+
+    clearSelection() {
+        this.selectedFrom = null;
+        this.selectedTarget = null;
+        this.render();
+    }
+
+    // Handle clicks: select a piece, then click target to move
+    handleCellClick(i) {
+        const last = window.stickDiceLastRoll;
+        const msgEl = document.getElementById('gameMessage');
+
+        // If no roll, prompt to roll first
+        if (!last) {
+            if (msgEl) msgEl.textContent = 'Wait: no roll available. Click Roll.';
+            return;
+        }
+
+        // If nothing selected yet, try to select a piece
+        if (this.selectedFrom === null) {
+            const piece = this.content[i];
+            if (!piece) {
+                if (msgEl) msgEl.textContent = 'Select a piece: this square is empty.';
+                return;
+            }
+            if (piece.player !== this.currentPlayer) {
+                if (msgEl) msgEl.textContent = 'This is not your piece. Wait for your turn.';
+                return;
+            }
+
+            const pieceState = this.pieceStates[i];
+            if (pieceState === 'unmoved' && last.value !== 1) {
+                if (msgEl) msgEl.textContent = 'First move must be with Tâb (value 1)';
+                return;
+            }
+
+            const target = this.calculateNextPosition(i, last.value);
+            if (target === null) {
+                if (msgEl) msgEl.textContent = 'No valid target for this piece with current roll.';
+                return;
+            }
+
+            const dest = this.content[target];
+            if (dest && dest.player === piece.player) {
+                if (msgEl) msgEl.textContent = 'Blocked: your piece is in the destination.';
+                return;
+            }
+
+            const targetRow = this.getRow(target);
+            const homeRow = piece.player === 'player-1' ? 3 : 0;
+            if (targetRow === homeRow && pieceState !== 'unmoved') {
+                if (msgEl) msgEl.textContent = 'Cannot return to home row.';
+                return;
+            }
+
+            this.selectedFrom = i;
+            this.selectedTarget = target;
+            if (msgEl) msgEl.textContent = `Selected piece ${i}. Click the highlighted square to move.`;
+            this.render();
+            return;
+        }
+
+        // If clicking selected piece, cancel
+        if (i === this.selectedFrom) {
+            this.clearSelection();
+            if (msgEl) msgEl.textContent = 'Selection canceled.';
+            return;
+        }
+
+        // If clicking target, perform move with metadata
+        if (i === this.selectedTarget) {
+            const lastRoll = window.stickDiceLastRoll;
+            const piece = this.content[this.selectedFrom];
+            const pieceState = this.pieceStates[this.selectedFrom];
+            const convert = (pieceState === 'unmoved' && lastRoll && lastRoll.value === 1);
+            const enteringOpponentHome = (this.getRow(this.selectedTarget) === (piece.player === 'player-1' ? 0 : 3) && !piece.hasEnteredOpponentHome);
+            const success = this.applyMoveIndices(this.selectedFrom, this.selectedTarget, lastRoll ? lastRoll.repeats : false, { convert, enteringOpponentHome });
+            this.clearSelection();
+            if (success) {
+                if (msgEl) msgEl.textContent = lastRoll && lastRoll.repeats ? 'Move executed! Roll again.' : `Move executed: ${this.selectedFrom} → ${this.selectedTarget}`;
+            }
+            return;
+        }
+
+        // Otherwise, if clicking another own piece, switch selection
+        const piece2 = this.content[i];
+        if (piece2 && piece2.player === this.currentPlayer) {
+            this.selectedFrom = null;
+            this.selectedTarget = null;
+            this.handleCellClick(i);
+            return;
+        }
+
+        // Else clear selection
+        this.clearSelection();
     }
 
     // Get row from index
@@ -182,88 +283,132 @@ class GameBoard {
                 msg.textContent = text;
             }
         } catch (err) { /* ignore */ }
-        
         for (let i = 0; i < this.boardElements.length; i++) {
             const cell = this.boardElements[i];
+            // Clear existing tokens
             Array.from(cell.querySelectorAll('.board-token')).forEach(t => t.remove());
             const obj = this.content[i];
             if (obj && obj.player) {
                 const token = document.createElement('div');
                 token.className = `board-token ${obj.player === 'player-1' ? 'player-1' : 'player-2'}`;
-                
+
                 // Apply transparency based on piece state
                 const state = this.pieceStates[i];
-                if (state === 'unmoved') {
-                    token.style.opacity = '1.0';
-                } else if (state === 'moved') {
-                    token.style.opacity = '0.7';
-                } else if (state === 'reached-last-row') {
-                    token.style.opacity = '0.4';
-                }
-                
+                if (state === 'unmoved') token.style.opacity = '1.0';
+                else if (state === 'moved') token.style.opacity = '0.7';
+                else if (state === 'reached-last-row') token.style.opacity = '0.4';
+
                 token.dataset.index = i;
                 token.setAttribute('aria-label', obj.player);
+                // Selection visuals
+                if (this.selectedFrom === i) {
+                    token.style.outline = '3px solid rgba(255,215,0,0.95)';
+                    token.style.boxShadow = '0 0 8px rgba(255,215,0,0.6)';
+                }
                 cell.appendChild(token);
             }
+
+            // Highlight target cell if selectedTarget matches
+            if (this.selectedTarget === i) cell.style.boxShadow = 'inset 0 0 0 3px rgba(255,215,0,0.25)';
+            else cell.style.boxShadow = '';
         }
     }
 
-    // CORREÇÃO: Aplicar movimento com lógica de captura corrigida
-    applyMoveIndices(fromIdx, toIdx, keepTurn = false) {
+    // Aplicar movimento com lógica de captura e persistência de metadados da IA
+    // aceita moveMeta opcional: { convert: bool, enteringOpponentHome: bool }
+    applyMoveIndices(fromIdx, toIdx, keepTurn = false, moveMeta = {}) {
         const piece = this.content[fromIdx];
         if (!piece) return false;
-        
+
         // Verificar captura
         const targetPiece = this.content[toIdx];
         const wasCapture = targetPiece && targetPiece.player !== piece.player;
 
-        // Atualizar estado da peça
+        // Assegurar campos IA no objecto de peça
+        piece.hasConverted = !!piece.hasConverted;
+        piece.hasEnteredOpponentHome = !!piece.hasEnteredOpponentHome;
+        if (!Array.isArray(piece.history)) piece.history = piece.history ? [...piece.history] : [];
+
+        // Determinar novo estado (moved/reached-last-row)
         const toRow = this.getRow(toIdx);
         const lastRow = piece.player === 'player-1' ? 0 : 3; // Linha final oposta
-        
+        let newPieceState;
         if (toRow === lastRow && this.pieceStates[fromIdx] !== 'reached-last-row') {
-            this.pieceStates[toIdx] = 'reached-last-row';
+            newPieceState = 'reached-last-row';
         } else if (this.pieceStates[fromIdx] === 'unmoved') {
-            this.pieceStates[toIdx] = 'moved';
+            newPieceState = 'moved';
         } else {
-            this.pieceStates[toIdx] = this.pieceStates[fromIdx];
+            newPieceState = this.pieceStates[fromIdx];
         }
 
-        // Mover peça
-        this.content[fromIdx] = null;
-        this.pieceStates[fromIdx] = null;
-        this.content[toIdx] = piece;
-        
-        // Remover peça capturada se houver
-        if (wasCapture) {
-            this.content[toIdx] = piece; // A peça que se moveu fica na posição
-        }
+        // Inferir metadados se não fornecidos
+        const inferredConvert = (this.pieceStates[fromIdx] === 'unmoved' && window.stickDiceLastRoll && window.stickDiceLastRoll.value === 1);
+        const opponentHomeRow = piece.player === 'player-1' ? 0 : 3;
+        const inferredEntering = (toRow === opponentHomeRow && !piece.hasEnteredOpponentHome);
 
-        // Verificar se o jogador pode jogar novamente
-        const lastRoll = window.stickDiceLastRoll;
-        const canPlayAgain = lastRoll && lastRoll.repeats && !keepTurn;
+        const finalConvert = !!(moveMeta && moveMeta.convert) || inferredConvert;
+        const finalEntering = !!(moveMeta && moveMeta.enteringOpponentHome) || inferredEntering;
 
-        if (!canPlayAgain) {
-            this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
-        }
+        if (finalConvert) piece.hasConverted = true;
+        if (finalEntering) piece.hasEnteredOpponentHome = true;
+        if (!piece.history.includes(toRow)) piece.history.push(toRow);
 
-        this.render();
-        
-        if (!canPlayAgain) {
-            document.dispatchEvent(new CustomEvent('moveEnded'));
-        }
+        // Preparar animação (se possível)
+        const fromCell = this.boardElements[fromIdx];
+        const toCell = this.boardElements[toIdx];
+        const tokenEl = fromCell ? fromCell.querySelector('.board-token') : null;
 
-        // Notificar sobre captura
-        try {
-            const msg = document.getElementById('gameMessage');
-            if (msg && wasCapture) {
-                msg.textContent = 'Piece captured!';
+        const finalizeMove = () => {
+            // Aplicar alterações de conteúdo/estado
+            this.content[fromIdx] = null;
+            this.pieceStates[fromIdx] = null;
+            this.content[toIdx] = piece; // move piece object (with metadata)
+            this.pieceStates[toIdx] = newPieceState;
+
+            // Verificar se o jogador pode jogar novamente
+            const lastRoll = window.stickDiceLastRoll;
+            const canPlayAgain = lastRoll && lastRoll.repeats && !keepTurn;
+            if (!canPlayAgain) {
+                this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
             }
-        } catch (err) { /* ignore */ }
 
-        // Verificar fim de jogo
-        this.checkGameOver();
-        
+            // Re-render e eventos
+            this.render();
+            console.log('applyMoveIndices', { from: fromIdx, to: toIdx, piece, wasCapture, finalConvert, finalEntering });
+            document.dispatchEvent(new CustomEvent('boardChanged', { detail: { from: fromIdx, to: toIdx, piece, wasCapture } }));
+            if (!canPlayAgain) document.dispatchEvent(new CustomEvent('moveEnded'));
+
+            if (wasCapture) {
+                try { const msg = document.getElementById('gameMessage'); if (msg) msg.textContent = 'Piece captured!'; } catch (e) {}
+            }
+
+            this.checkGameOver();
+        };
+
+        if (tokenEl && fromCell && toCell) {
+            // animação com clone do token
+            const fromRect = tokenEl.getBoundingClientRect();
+            const toRect = toCell.getBoundingClientRect();
+            const clone = tokenEl.cloneNode(true);
+            clone.style.position = 'fixed';
+            clone.style.left = `${fromRect.left}px`;
+            clone.style.top = `${fromRect.top}px`;
+            clone.style.width = `${fromRect.width}px`;
+            clone.style.height = `${fromRect.height}px`;
+            clone.style.margin = '0';
+            clone.style.transition = 'transform 300ms ease-in-out, opacity 300ms ease-in-out';
+            clone.style.zIndex = 9999;
+            document.body.appendChild(clone);
+
+            tokenEl.style.visibility = 'hidden';
+            const dx = toRect.left - fromRect.left;
+            const dy = toRect.top - fromRect.top;
+            requestAnimationFrame(() => { clone.style.transform = `translate(${dx}px, ${dy}px)`; clone.style.opacity = '0.95'; });
+            clone.addEventListener('transitionend', () => { clone.remove(); try { tokenEl.style.visibility = ''; } catch (e) {} finalizeMove(); }, { once: true });
+        } else {
+            finalizeMove();
+        }
+
         return true;
     }
 
@@ -335,8 +480,14 @@ class GameBoard {
             return;
         }
 
-        // Aplicar movimento
-        const success = this.applyMoveIndices(fromIndex, target, last.repeats);
+        // Build moveMeta for persistence
+        const pieceHasConverted = !!piece.hasConverted;
+        const pieceHasEntered = !!piece.hasEnteredOpponentHome;
+        if (!Array.isArray(piece.history)) piece.history = piece.history ? [...piece.history] : [];
+        const convert = (pieceState === 'unmoved' && last && last.value === 1) || pieceHasConverted;
+        const enteringOpponentHome = (this.getRow(target) === (piece.player === 'player-1' ? 0 : 3) && !pieceHasEntered);
+
+        const success = this.applyMoveIndices(fromIndex, target, last.repeats, { convert, enteringOpponentHome });
         if (success) {
             const msg = document.getElementById('gameMessage');
             if (msg) {
@@ -348,6 +499,7 @@ class GameBoard {
             }
         }
     }
+
 
     async handleAIMove(stickValue, repeats) {
         if (!window.IA) {
@@ -380,8 +532,8 @@ class GameBoard {
                 return;
             }
 
-            // Aplicar movimento visualmente
-            this.applyMoveIndices(indices.from, indices.to);
+            // Aplicar movimento visualmente, passando metadados vindos da IA
+            this.applyMoveIndices(indices.from, indices.to, false, { convert: indices.convert, enteringOpponentHome: indices.enteringOpponentHome });
 
         } catch (error) {
             console.error('AI move error:', error);
