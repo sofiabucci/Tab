@@ -144,24 +144,23 @@ class GameBoard {
      * Finds all squares exactly 'moves' steps away from a starting index.
      */
     findTargetSquares(startIndex, moves) {
-        let results = new Array; 
+        let results = new Array(); 
+        findRecursive(startIndex, moves, results);
 
-        function findRecursive(currentIndex, stepsLeft) {
-            if (stepsLeft === 0) {
-                results.add(currentIndex);
-                return;
-            }
-
-            const nextMoves = this.movementMap.get(currentIndex);
-            if (nextMoves) {
-                for (const nextIndex of nextMoves) {
-                    findRecursive.call(this, nextIndex, stepsLeft - 1);
-                }
-            }
+        return results; 
+    }
+    findRecursive (currentIndex, stepsLeft, results){
+        if (stepsLeft === 0) {
+            results.push(currentIndex);
+            return;
         }
 
-        findRecursive.call(this, startIndex, moves);
-        return Array.from(results); 
+        const nextMoves = this.movementMap.get(currentIndex);
+        if (nextMoves) {
+            for (const nextIndex of nextMoves) {
+                findRecursive(nextIndex, stepsLeft - 1);
+            }
+        }
     }
 
     /**
