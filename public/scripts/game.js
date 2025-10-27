@@ -104,11 +104,14 @@
     return { ts: Date.now(), type, message, data };
   }
 
-  // When a GameBoard is created via generateBoard, initialize session logging
-  function attachToBoard(board, options){
+  // Setup game logging with classification support
+  function setupGameLogging(board, options){
     if (!board) return;
     createLoggerUI();
     pushLog(makeEntry('scene','game_started',{ options: options || {} }));
+
+    // Track game start time for classification
+    const gameStartTime = Date.now();
 
     // Wrap applyMoveIndices to capture move details
     if (board && typeof board.applyMoveIndices === 'function'){
@@ -129,6 +132,9 @@
           if (counts['player-1'] === 0 || counts['player-2'] === 0){
             const winner = counts['player-1'] === 0 ? 'player-2' : 'player-1';
             pushLog(makeEntry('scene','game_over',{ winner }));
+            
+            // Record game result in classification system
+            recordGameResult(winner, gameStartTime, options);
           }
         } else {
           pushLog(makeEntry('move_failed','invalid_move', entryData));
@@ -146,9 +152,25 @@
 
     // Listen for pass/resign actions
     const passHandler = (e) => { pushLog(makeEntry('action','player_passed', e && e.detail ? e.detail : {})); };
-    const resignHandler = (e) => { pushLog(makeEntry('action','player_resigned', e && e.detail ? e.detail : {})); };
+    const resignHandler = (e) => { 
+      pushLog(makeEntry('action','player_resigned', e && e.detail ? e.detail : {}));
+      
+      // Record resignation in classification
+      if (e && e.detail && e.detail.winner) {
+        recordGameResult(e.detail.winner, gameStartTime, options);
+      }
+    };
     document.addEventListener('playerPassed', passHandler);
     document.addEventListener('playerResigned', resignHandler);
+
+    // Listen for game over events from board
+    const gameOverHandler = (e) => {
+      if (e && e.detail && e.detail.winner) {
+        pushLog(makeEntry('scene','game_over', e.detail));
+        recordGameResult(e.detail.winner, gameStartTime, options);
+      }
+    };
+    document.addEventListener('gameOver', gameOverHandler);
 
     // Listen for moves end (UI/dice)
     const endHandler = () => {
@@ -160,6 +182,8 @@
     board.__gameLoggerCleanup = function(){
       document.removeEventListener('stickRoll', rollHandler);
       document.removeEventListener('moveEnded', endHandler);
+      document.removeEventListener('gameOver', gameOverHandler);
+      document.removeEventListener('playerResigned', resignHandler);
       pushLog(makeEntry('scene','game_ended_cleanup'));
     };
 
@@ -181,18 +205,38 @@
     }
   }
 
+  // Record game result in classification system
+  function recordGameResult(winner, gameStartTime, options) {
+    const gameDuration = Math.floor((Date.now() - gameStartTime) / 1000); // em segundos
+    const player1 = 'Player 1';
+    const player2 = options.mode === 'pvc' ? 'AI' : 'Player 2';
+    
+    // Registrar no classification
+    if (window.classification) {
+      window.classification.recordGame(player1, player2, winner, gameDuration);
+      pushLog(makeEntry('classification','game_recorded',{ 
+        player1, 
+        player2, 
+        winner, 
+        duration: gameDuration 
+      }));
+    } else {
+      pushLog(makeEntry('warning','classification_system_not_available',{}));
+    }
+  }
+
   // Wrap generateBoard so we can attach the logger automatically
   function wrapGenerateBoard(){
     if (!window.generateBoard) return;
     const origGen = window.generateBoard.bind(window);
     window.generateBoard = function(columns, options){
       const board = origGen(columns, options);
-      try{ attachToBoard(board, options); } catch(err){ console.error('game.js logger attach failed', err); }
+      try{ setupGameLogging(board, options); } catch(err){ console.error('game.js logger attach failed', err); }
       return board;
     };
 
     // If board already exists, attach
-    if (window._currentGameBoard) attachToBoard(window._currentGameBoard, window._currentGameBoard.options);
+    if (window._currentGameBoard) setupGameLogging(window._currentGameBoard, window._currentGameBoard.options);
   }
 
   if (document.readyState === 'loading'){

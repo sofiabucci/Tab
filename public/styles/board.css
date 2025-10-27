@@ -14,7 +14,6 @@
     margin: auto;
 }
 
-/* Board grid - AGORA RESPONSIVO */
 .board {
     display: grid;
     justify-content: center;
@@ -23,7 +22,6 @@
     height: fit-content;
 }
 
-/* Squares (tiles) - TAMANHO DINÂMICO COM CALC (BEM MAIORES) */
 .board-square {
     display: flex;
     align-items: center;
@@ -34,9 +32,8 @@
     box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.3);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     
-    /* Tamanho baseado no número de colunas: maior com menos colunas, menor com mais colunas */
-    width: calc(800px / var(--cols, 9));
-    height: calc(800px / var(--cols, 9));
+    width: calc(700px / var(--cols, 9));
+    height: calc(700px / var(--cols, 9));
     min-width: 45px;
     min-height: 45px;
 }
@@ -46,7 +43,6 @@
     box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-/* Tokens - TAMANHO DINÂMICO COM CALC (BEM MAIORES) */
 .board-token {
     border-radius: 50%;
     display: flex;
@@ -55,9 +51,8 @@
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     
-    /* Tamanho baseado no número de colunas (85% do quadrado) */
-    width: calc(680px / var(--cols, 9));
-    height: calc(680px / var(--cols, 9));
+    width: calc(630px / var(--cols, 9));
+    height: calc(630px / var(--cols, 9));
     min-width: 38px;
     min-height: 38px;
 }

@@ -195,14 +195,12 @@ class GameBoard {
         return row * this.cols + col;
     }
 
-    // CORREÇÃO: Direção de movimento baseada apenas na linha
     getMovementDirection(row) {
         // Linhas 0 e 2: esquerda para direita (→)
         // Linhas 1 e 3: direita para esquerda (←)
         return (row === 0 || row === 2) ? 1 : -1;
     }
 
-    // CORREÇÃO: Cálculo de posição seguindo o padrão correto do Tâb
     calculateNextPosition(fromIndex, steps) {
         if (fromIndex === null || fromIndex === undefined) return null;
         
@@ -260,7 +258,6 @@ class GameBoard {
         return this.getIndex(currentRow, currentCol);
     }
 
-    // CORREÇÃO: Verificar se há peças na linha inicial
     hasPiecesInHomeRow(player) {
         const homeRow = player === 'player-1' ? 3 : 0;
         for (let c = 0; c < this.cols; c++) {
@@ -314,6 +311,7 @@ class GameBoard {
         }
     }
 
+    applyMoveIndices(fromIdx, toIdx, keepTurn = false) {
     // Aplicar movimento com lógica de captura e persistência de metadados da IA
     // aceita moveMeta opcional: { convert: bool, enteringOpponentHome: bool }
     applyMoveIndices(fromIdx, toIdx, keepTurn = false, moveMeta = {}) {

@@ -1,83 +1,116 @@
-// ================================
-// 🏺 Egyptian Tâb (versão sem stacks)
-// ================================
-
-// Constantes básicas
 const WHITE = "W";
 const BLACK = "B";
 const ROWS = 4;
 
-// Valores possíveis dos sticks (varetas)
-const THROWS = [
-  [1, 0.25, true],  // tâb → 1
-  [2, 0.38, true],
-  [3, 0.25, false],
-  [4, 0.06, false],
-  [6, 0.06, true]
-];
-
-// ---------------------------------
-// 🧱 Estrutura da peça
-// ---------------------------------
+// Classe Piece simplificada
 class Piece {
-  constructor(player, row, col) {
-    this.player = player;
-    this.row = row;
-    this.col = col;
-    this.hasConverted = false;           // se já fez o primeiro movimento "tâb"
-    this.hasEnteredOpponentHome = false; // se já entrou na home row do adversário
-    this.history = [];                   // rows visitadas
-  }
+    constructor(player, row, col) {
+        this.player = player;
+        this.row = row;
+        this.col = col;
+        this.hasMoved = false;
+        this.inFinalRow = false;
+    }
 
-  clone() {
-    const p = new Piece(this.player, this.row, this.col);
-    p.hasConverted = this.hasConverted;
-    p.hasEnteredOpponentHome = this.hasEnteredOpponentHome;
-    p.history = [...this.history];
-    return p;
-  }
+    clone() {
+        const p = new Piece(this.player, this.row, this.col);
+        p.hasMoved = this.hasMoved;
+        p.inFinalRow = this.inFinalRow;
+        return p;
+    }
 }
 
-// ---------------------------------
-// 🎯 Estrutura do estado do jogo
-// ---------------------------------
+// Estado do jogo
 class State {
-  constructor(board, toMove) {
-    this.board = board;      // board externo (4xN)
-    this.toMove = toMove;    // "W" ou "B"
-    this.eliminated = { [WHITE]: 0, [BLACK]: 0 };
-  }
+    constructor(board, toMove) {
+        this.board = board;
+        this.toMove = toMove;
+    }
 
-  clone() {
-    const clonedBoard = this.board.map(row => row.map(cell => cell ? cell.clone() : null));
-    const st = new State(clonedBoard, this.toMove);
-    st.eliminated = { ...this.eliminated };
-    return st;
-  }
+    clone() {
+        const clonedBoard = this.board.map(row => 
+            row.map(cell => cell ? cell.clone() : null)
+        );
+        return new State(clonedBoard, this.toMove);
+    }
 
-  isTerminal() {
-    const whites = this.board.flat().filter(p => p && p.player === WHITE).length;
-    const blacks = this.board.flat().filter(p => p && p.player === BLACK).length;
-    return whites === 0 || blacks === 0;
-  }
+    isTerminal() {
+        let whiteCount = 0, blackCount = 0;
+        for (let row of this.board) {
+            for (let cell of row) {
+                if (cell) {
+                    if (cell.player === WHITE) whiteCount++;
+                    else blackCount++;
+                }
+            }
+        }
+        return whiteCount === 0 || blackCount === 0;
+    }
 
-  evaluate() {
-    const whites = this.board.flat().filter(p => p && p.player === WHITE).length;
-    const blacks = this.board.flat().filter(p => p && p.player === BLACK).length;
-    return whites - blacks;
-  }
+    // Função de avaliação para Minimax
+    evaluate() {
+        // Verificar vitória/derrota
+        let whiteCount = 0, blackCount = 0;
+        for (let row of this.board) {
+            for (let cell of row) {
+                if (cell) {
+                    if (cell.player === WHITE) whiteCount++;
+                    else blackCount++;
+                }
+            }
+        }
+
+        if (whiteCount === 0) return -1000;
+        if (blackCount === 0) return 1000;
+
+        // Avaliação heurística
+        let score = 0;
+        const cols = this.board[0].length;
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < cols; c++) {
+                const piece = this.board[r][c];
+                if (!piece) continue;
+
+                const value = piece.player === WHITE ? 1 : -1;
+                
+                // Peças na linha final valem mais
+                if (piece.inFinalRow) {
+                    score += value * 3;
+                }
+                // Peças que já se moveram
+                else if (piece.hasMoved) {
+                    score += value * 2;
+                }
+                // Peças básicas
+                else {
+                    score += value;
+                }
+
+                // Bonus por posição central nas linhas 1 e 2
+                if (r === 1 || r === 2) {
+                    const centerDist = Math.abs(c - Math.floor(cols / 2));
+                    score += value * (1 - centerDist / cols);
+                }
+            }
+        }
+
+        return score;
+    }
 }
 
-// ---------------------------------
-// ⚙️ Funções auxiliares
-// ---------------------------------
+// Funções auxiliares
+function getOpponent(player) {
+    return player === WHITE ? BLACK : WHITE;
+}
 
 function inBounds(row, col, cols) {
-  return row >= 0 && row < ROWS && col >= 0 && col < cols;
+    return row >= 0 && row < ROWS && col >= 0 && col < cols;
 }
 
-function getOpponent(player) {
-  return player === WHITE ? BLACK : WHITE;
+// CORREÇÃO: Movimento seguindo as regras do Tâb
+function getMovementDirection(row) {
+    return (row === 0 || row === 2) ? 1 : -1;
 }
 
 function piecesInHomeRow(state, player) {
@@ -127,179 +160,239 @@ function generateMovesForThrow(state, throwVal, player) {
   const moves = [];
   const cols = state.board[0].length;
 
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < cols; c++) {
-      const piece = state.board[r][c];
-      if (!piece || piece.player !== player) continue;
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < cols; c++) {
+            const piece = state.board[r][c];
+            if (!piece || piece.player !== player) continue;
 
-      // Regras 4: Primeira jogada só pode ser "tâb" (1)
-      if (!piece.hasConverted && throwVal !== 1) continue;
+            // Regra: primeiro movimento só com valor 1
+            if (!piece.hasMoved && stickValue !== 1) continue;
 
-      // Calcular destino
-      let newRow = r;
-      let newCol = c + throwVal;
+            // Calcular destino
+            const target = calculateNextPosition(r, c, stickValue, cols);
+            if (!target) continue;
 
-      // Movimento estilo "zig-zag" (como no Senet)
-      if (newCol >= cols) {
-        newRow = (r + 1) % ROWS;
-        newCol = newCol - cols;
-      }
+            // Verificar se destino tem peça do mesmo jogador
+            const destPiece = state.board[target.row][target.col];
+            if (destPiece && destPiece.player === player) continue;
 
-      if (!inBounds(newRow, newCol, cols)) continue;
+            // Verificar restrição da linha final
+            const finalRow = player === WHITE ? 3 : 0;
+            if (piece.inFinalRow && target.row === finalRow) {
+                // Verificar se ainda há peças na linha inicial
+                let hasPiecesInHome = false;
+                const homeRow = player === WHITE ? 0 : 3;
+                for (let homeCol = 0; homeCol < cols; homeCol++) {
+                    const homePiece = state.board[homeRow][homeCol];
+                    if (homePiece && homePiece.player === player && !homePiece.inFinalRow) {
+                        hasPiecesInHome = true;
+                        break;
+                    }
+                }
+                if (hasPiecesInHome) continue;
+            }
 
-      const dest = state.board[newRow][newCol];
+            // Verificar retorno à linha inicial
+            const homeRow = player === WHITE ? 0 : 3;
+            if (target.row === homeRow && piece.hasMoved) continue;
 
-      // Não pode mover para casa com peça da mesma equipa
-      if (dest && dest.player === player) continue;
-
-      // Regras 1 e 2: home rows e bloqueio
-      const opponentHome = player === WHITE ? 3 : 0;
-      const ownHome = player === WHITE ? 0 : 3;
-
-      // Bloquear avanço dentro da home adversária se ainda tiver peças na própria
-      if (
-        piece.hasEnteredOpponentHome &&
-        newRow === opponentHome &&
-        piecesInHomeRow(state, player) > 0
-      ) continue;
-
-      // Marcar se entra na home adversária
-      const enteringOpponentHome = newRow === opponentHome && !piece.hasEnteredOpponentHome;
-
-      // Regras 4: primeira jogada não pode ir para casa ocupada pelo mesmo jogador
-      if (!piece.hasConverted && dest && dest.player === player) continue;
-
-      moves.push({
-        piece, from: { r, c },
-        to: { r: newRow, c: newCol },
-        enteringOpponentHome,
-        convert: !piece.hasConverted && throwVal === 1
-      });
+            moves.push({
+                from: { r, c },
+                to: target,
+                piece: piece,
+                stickValue: stickValue
+            });
+        }
     }
-  }
 
-  // Regra 3: Pode passar a vez (opcional)
-  moves.push({ type: "PASS" });
-  return moves;
+    return moves;
 }
 
-function applyMove(state, move) {
-  if (move.type === "PASS") return state;
+// Algoritmo Minimax
+function minimax(state, depth, maximizingPlayer, alpha = -Infinity, beta = Infinity) {
+    // Caso base: estado terminal ou profundidade máxima
+    if (depth === 0 || state.isTerminal()) {
+        return { value: state.evaluate(), move: null };
+    }
 
-  const newState = state.clone();
-  const p = newState.board[move.from.r][move.from.c];
-  if (!p) return newState;
+    const currentPlayer = maximizingPlayer ? WHITE : BLACK;
+    const possibleValues = [1, 2, 3, 4, 6]; // Valores possíveis do dado
 
-  // Limpar casa antiga
-  newState.board[move.from.r][move.from.c] = null;
+    if (maximizingPlayer) {
+        let maxEval = -Infinity;
+        let bestMove = null;
 
-  // Captura se houver inimigo
-  const target = newState.board[move.to.r][move.to.c];
-  if (target && target.player !== p.player) {
-    newState.eliminated[target.player]++;
-  }
+        // Para Minimax, assumimos o pior caso dos dados (adversário escolhe o pior valor)
+        // Ou podemos considerar a média dos valores
+        for (const stickValue of possibleValues) {
+            const moves = generateMovesForValue(state, stickValue, currentPlayer);
+            
+            if (moves.length === 0) {
+                // Sem movimentos possíveis para este valor do dado
+                const evalScore = minimax(
+                    new State(state.board, getOpponent(currentPlayer)),
+                    depth - 1,
+                    false,
+                    alpha,
+                    beta
+                ).value;
+                
+                if (evalScore > maxEval) {
+                    maxEval = evalScore;
+                    bestMove = { type: "PASS", stickValue };
+                }
+            } else {
+                for (const move of moves) {
+                    const newState = applyMoveToState(state, move);
+                    const evalResult = minimax(
+                        newState,
+                        depth - 1,
+                        false,
+                        alpha,
+                        beta
+                    );
+                    
+                    if (evalResult.value > maxEval) {
+                        maxEval = evalResult.value;
+                        bestMove = move;
+                    }
+                    
+                    alpha = Math.max(alpha, evalResult.value);
+                    if (beta <= alpha) break;
+                }
+            }
+            
+            if (beta <= alpha) break;
+        }
 
-  // Atualizar peça
-  p.row = move.to.r;
-  p.col = move.to.c;
-  if (move.convert) p.hasConverted = true;
-  if (move.enteringOpponentHome) p.hasEnteredOpponentHome = true;
-  if (!p.history.includes(move.to.r)) p.history.push(move.to.r);
+        return { value: maxEval, move: bestMove };
+    } else {
+        let minEval = Infinity;
+        let bestMove = null;
 
-  // Colocar no destino
-  newState.board[move.to.r][move.to.c] = p;
+        for (const stickValue of possibleValues) {
+            const moves = generateMovesForValue(state, stickValue, currentPlayer);
+            
+            if (moves.length === 0) {
+                const evalScore = minimax(
+                    new State(state.board, getOpponent(currentPlayer)),
+                    depth - 1,
+                    true,
+                    alpha,
+                    beta
+                ).value;
+                
+                if (evalScore < minEval) {
+                    minEval = evalScore;
+                    bestMove = { type: "PASS", stickValue };
+                }
+            } else {
+                for (const move of moves) {
+                    const newState = applyMoveToState(state, move);
+                    const evalResult = minimax(
+                        newState,
+                        depth - 1,
+                        true,
+                        alpha,
+                        beta
+                    );
+                    
+                    if (evalResult.value < minEval) {
+                        minEval = evalResult.value;
+                        bestMove = move;
+                    }
+                    
+                    beta = Math.min(beta, evalResult.value);
+                    if (beta <= alpha) break;
+                }
+            }
+            
+            if (beta <= alpha) break;
+        }
 
-  // Mudar turno
-  newState.toMove = getOpponent(state.toMove);
-
-  return newState;
+        return { value: minEval, move: bestMove };
+    }
 }
 
-// ---------------------------------
-// 🎲 Expectimax (IA)
-// ---------------------------------
-
-async function expectimax(state, depth, maximizing) {
-  if (state.isTerminal() || depth === 0) return { value: state.evaluate(), best: null };
-  const player = state.toMove;
-
-  async function chanceNode(st, d, p) {
-    let expected = 0;
-    for (const [val, prob] of THROWS) {
-      const v = await valueAfterThrow(st, val, d, p);
-      expected += prob * v;
-    }
-    return expected;
-  }
-
-  async function valueAfterThrow(st, val, d, p) {
-    const moves = generateMovesForThrow(st, val, p);
-    if (!moves.length) {
-      const next = st.clone();
-      next.toMove = getOpponent(p);
-      return (await expectimax(next, d - 1, !maximizing)).value;
+// Aplicar movimento ao estado
+function applyMoveToState(state, move) {
+    if (move.type === "PASS") {
+        return new State(state.board, getOpponent(state.toMove));
     }
 
-    let bestVal = p === WHITE ? -Infinity : Infinity;
-    for (const m of moves) {
-      const next = applyMove(st, m);
-      const valEval = await chanceNode(next, d - 1, getOpponent(p));
-      if (p === WHITE) bestVal = Math.max(bestVal, valEval);
-      else bestVal = Math.min(bestVal, valEval);
-    }
-    return bestVal;
-  }
+    const newState = state.clone();
+    const { r: fromR, c: fromC } = move.from;
+    const { row: toR, col: toC } = move.to;
 
-  const best = await chanceNode(state, depth, player);
-  return { value: best, best: null };
+    const piece = newState.board[fromR][fromC];
+    if (!piece) return newState;
+
+    // Atualizar estado da peça
+    piece.hasMoved = true;
+    const finalRow = piece.player === WHITE ? 3 : 0;
+    if (toR === finalRow) {
+        piece.inFinalRow = true;
+    }
+
+    // Mover peça
+    newState.board[fromR][fromC] = null;
+    
+    // Capturar peça adversária se houver
+    const targetPiece = newState.board[toR][toC];
+    if (targetPiece && targetPiece.player !== piece.player) {
+        // Peça capturada - simplesmente sobrescrever
+    }
+    
+    newState.board[toR][toC] = piece;
+    newState.toMove = getOpponent(state.toMove);
+
+    return newState;
 }
 
-// ---------------------------------
-// 🧠 Escolha de jogada da IA
-// ---------------------------------
-const AI_DEPTHS = { EASY: 1, MEDIUM: 3, HARD: 5 };
+// Escolha de movimento da IA
+const AI_DEPTHS = { EASY: 1, MEDIUM: 2, HARD: 3 };
 
 async function chooseMoveAI(state, level = "MEDIUM") {
-  const normalized = (level || "MEDIUM").toString().toUpperCase();
-  const depth = AI_DEPTHS[normalized] || 3;
-  const moves = generateMovesForThrow(state, 1, state.toMove)
-    .concat(generateMovesForThrow(state, 2, state.toMove))
-    .concat(generateMovesForThrow(state, 3, state.toMove))
-    .concat(generateMovesForThrow(state, 4, state.toMove))
-    .concat(generateMovesForThrow(state, 6, state.toMove));
+    const normalized = (level || "MEDIUM").toString().toUpperCase();
+    const depth = AI_DEPTHS[normalized] || 2;
 
-  if (!moves.length) return { type: "PASS" };
-
-  // Aleatoriedade no nível fácil
-  if (normalized === "EASY" && Math.random() < 0.4) {
-    return moves[Math.floor(Math.random() * moves.length)];
-  }
-
-  // Avaliar movimentos
-  let bestVal = -Infinity;
-  let bestMove = moves[0];
-  for (const m of moves) {
-    const next = applyMove(state, m);
-    const { value } = await expectimax(next, depth - 1, false);
-    if (value > bestVal) {
-      bestVal = value;
-      bestMove = m;
+    // Para nível fácil, adicionar aleatoriedade
+    if (normalized === "EASY" && Math.random() < 0.3) {
+        const allMoves = [];
+        for (const value of [1, 2, 3, 4, 6]) {
+            allMoves.push(...generateMovesForValue(state, value, state.toMove));
+        }
+        if (allMoves.length > 0) {
+            return allMoves[Math.floor(Math.random() * allMoves.length)];
+        }
+        return { type: "PASS" };
     }
-  }
 
-  return bestMove;
+    // Usar Minimax para níveis médio e difícil
+    const result = minimax(state, depth, state.toMove === WHITE);
+    
+    if (result.move) {
+        return result.move;
+    }
+
+    // Fallback: encontrar qualquer movimento válido
+    for (const value of [1, 2, 3, 4, 6]) {
+        const moves = generateMovesForValue(state, value, state.toMove);
+        if (moves.length > 0) {
+            return moves[0];
+        }
+    }
+
+    return { type: "PASS" };
 }
 
-// ---------------------------------
-// Expose IA helpers to other scripts
-// ---------------------------------
+// Interface com o board.js
 window.IA = window.IA || {};
+
 window.IA.chooseMoveAI = chooseMoveAI;
 window.IA.State = State;
 window.IA.Piece = Piece;
-window.IA.applyMove = applyMove;
 
-// Convert flat GameBoard.content (length cols*4) to IA State
 window.IA.fromGameBoard = function(content, cols, toMove) {
   const board = Array.from({ length: ROWS }, () => Array(cols).fill(null));
   for (let i = 0; i < content.length; i++) {
@@ -321,17 +414,14 @@ window.IA.fromGameBoard = function(content, cols, toMove) {
   return new State(board, mover);
 };
 
-// Convert IA move to flat indices for the GameBoard
 window.IA.moveToIndices = function(move, cols) {
-  if (!move || move.type === 'PASS') return { type: 'PASS' };
-  return {
-    from: move.from.r * cols + move.from.c,
-    to: move.to.r * cols + move.to.c,
-    convert: move.convert,
-    enteringOpponentHome: move.enteringOpponentHome
-  };
+    if (!move || move.type === 'PASS') return { type: 'PASS' };
+    
+    return {
+        from: move.from.r * cols + move.from.c,
+        to: move.to.row * cols + move.to.col
+    };
 };
 
 window.IA.WHITE = WHITE;
 window.IA.BLACK = BLACK;
-
