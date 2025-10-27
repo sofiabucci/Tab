@@ -83,33 +83,17 @@ class GameBoard {
             let nextCol = currentCol + direction;
             let nextRow = currentRow;
 
-            // CORREÇÃO: Transições entre linhas ajustadas
-            if (nextCol < 0) {
-                // Borda esquerda
-                if (currentRow === 0) {
-                    // Da linha 0 (←) vai para linha 1 (→) na coluna 0
-                    nextRow = 1;
-                    nextCol = 0;
-                } else if (currentRow === 2) {
-                    // Da linha 2 (←) vai para linha 3 (→) na coluna 0
-                    nextRow = 3;
-                    nextCol = 0;
-                } else {
-                    return null;
-                }
-            } else if (nextCol >= this.cols) {
-                // Borda direita
-                if (currentRow === 1) {
-                    // Da linha 1 (→) vai para linha 0 (←) na última coluna
-                    nextRow = 0;
-                    nextCol = this.cols - 1;
-                } else if (currentRow === 3) {
-                    // Da linha 3 (→) vai para linha 2 (←) na última coluna
-                    nextRow = 2;
-                    nextCol = this.cols - 1;
-                } else {
-                    return null;
-                }
+            // CORREÇÃO: Conectar as linhas do meio (1 <-> 2) quando ultrapassar as bordas.
+            if (nextCol < 0 || nextCol >= this.cols) {
+                // Mapear pares de linhas para permitir conexão entre as linhas do meio:
+                //  row 0 -> 1
+                //  row 1 -> 2
+                //  row 2 -> 1
+                //  row 3 -> 2
+                const pairedRow = (currentRow === 0) ? 1 : (currentRow === 1) ? 2 : (currentRow === 2) ? 1 : 2;
+                nextRow = pairedRow;
+                // Ao saltar de linha, pousamos na borda externa correspondente à direção
+                nextCol = direction > 0 ? this.cols - 1 : 0;
             }
 
             // Verificar limites de segurança
