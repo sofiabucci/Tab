@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', function() {
     loginBtn: 'loginModal'
   };
 
-  // Abrir modais
   for (const [btnId, modalId] of Object.entries(modalMap)) {
     const btn = document.getElementById(btnId);
     const modal = document.getElementById(modalId);
@@ -16,7 +15,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Fechar modais ao clicar fora (área escura) - CORRIGIDO
   document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', function(e) {
       if (e.target === this) {
@@ -25,7 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Impedir que clique dentro do conteúdo feche a modal
   document.querySelectorAll('.setup-container').forEach(container => {
     container.addEventListener('click', function(e) {
       e.stopPropagation();

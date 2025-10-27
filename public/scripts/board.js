@@ -2,10 +2,9 @@
 class GameBoard {
     constructor(id, cols) {
         this.cols = parseInt(cols) || 9;
-        this.content = new Array(this.cols * 4).fill(null);
-        this.boardElements = [];
-        this.pieceStates = new Array(this.cols * 4).fill(null);
+        this.content = Array(this.cols * 4).fill(null);
         
+        // Opções do setup
         this.options = {
             mode: (arguments[2]?.mode) || 'pvp',
             difficulty: (arguments[2]?.difficulty) || 'medium',
@@ -13,118 +12,58 @@ class GameBoard {
         };
 
         this.currentPlayer = this.options.firstPlayer;
-        this.selectedFrom = null;
-        this.rolling = false;
-
+        this.gameActive = true;
+        
         this.initBoard(id);
         this.setupPieces();
         this.render();
-
-        // IA rola automaticamente se começar
-        if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
+        
+        // IA começa automaticamente se for primeiro
+        if (this.isAITurn()) {
             setTimeout(() => this.triggerAIRoll(), 1000);
         }
     }
 
     initBoard(id) {
         const parent = document.getElementById(id);
-        parent.innerHTML = '';
-        
-        const board = document.createElement('div');
-        board.className = 'board';
+        parent.innerHTML = '<div class="board"></div>';
+        const board = parent.querySelector('.board');
         board.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
-        parent.appendChild(board);
-
+        
         for (let i = 0; i < this.cols * 4; i++) {
-            let cell = document.createElement('div');
+            const cell = document.createElement('div');
             cell.className = 'board-square';
-            cell.addEventListener('click', () => this.handleClick(i));
+            cell.onclick = () => this.handleClick(i);
             board.appendChild(cell);
-            this.boardElements[i] = cell;
         }
     }
 
     setupPieces() {
-        // Peças começam da direita
+        // Player 2 (top row) - da direita para esquerda
         for (let c = 0; c < this.cols; c++) {
-            // Player 2 (top) - direita para esquerda
-            const p2Idx = this.cols - 1 - c;
-            this.content[p2Idx] = { 
-                player: 'player-2', 
-                hasConverted: false,
-                hasEnteredOpponentHome: false,
-                history: [0]
+            this.content[this.cols - 1 - c] = { 
+                player: 'player-2',
+                hasConverted: false 
             };
-            this.pieceStates[p2Idx] = 'unmoved';
-
-            // Player 1 (bottom) - direita para esquerda  
-            const p1Idx = 3 * this.cols + (this.cols - 1 - c);
-            this.content[p1Idx] = { 
-                player: 'player-1', 
-                hasConverted: false,
-                hasEnteredOpponentHome: false,
-                history: [3]
+        }
+        // Player 1 (bottom row) - da direita para esquerda  
+        for (let c = 0; c < this.cols; c++) {
+            this.content[3 * this.cols + (this.cols - 1 - c)] = { 
+                player: 'player-1',
+                hasConverted: false 
             };
-            this.pieceStates[p1Idx] = 'unmoved';
-        }
-    }
-
-    handleClick(i) {
-        if (!window.lastRoll) {
-            this.showMessage('Roll dice first!');
-            return;
-        }
-
-        const piece = this.content[i];
-        
-        if (!this.selectedFrom) {
-            // Selecionar peça
-            if (!piece || piece.player !== this.currentPlayer) {
-                this.showMessage('Select your piece');
-                return;
-            }
-
-            if (this.pieceStates[i] === 'unmoved' && window.lastRoll.value !== 1) {
-                this.showMessage('First move must be with Tâb (1)');
-                return;
-            }
-
-            const target = this.calculateMove(i, window.lastRoll.value);
-            if (target === null || (this.content[target] && this.content[target].player === piece.player)) {
-                this.showMessage('Invalid move');
-                return;
-            }
-
-            this.selectedFrom = i;
-            this.showMessage('Click target to move');
-            this.render();
-        } else {
-            // Mover peça
-            const target = this.calculateMove(this.selectedFrom, window.lastRoll.value);
-            if (i === target) {
-                this.movePiece(this.selectedFrom, target);
-                this.selectedFrom = null;
-                
-                // IA joga automaticamente se for sua vez
-                if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2' && window.lastRoll.repeats) {
-                    setTimeout(() => this.triggerAIRoll(), 800);
-                }
-            } else {
-                this.selectedFrom = null;
-                this.handleClick(i);
-            }
         }
     }
 
     calculateMove(fromIndex, steps) {
         let row = Math.floor(fromIndex / this.cols);
         let col = fromIndex % this.cols;
-        let remaining = steps;
-
-        while (remaining > 0) {
+        
+        for (let i = 0; i < steps; i++) {
             const direction = (row === 0 || row === 2) ? 1 : -1;
             col += direction;
-
+            
+            // Transições entre linhas
             if (col < 0) {
                 if (row === 1) { row = 0; col = 0; }
                 else if (row === 3) { row = 2; col = this.cols - 1; }
@@ -134,54 +73,64 @@ class GameBoard {
                 else if (row === 2) { row = 3; col = 0; }
                 else return null;
             }
+        }
+        
+        return row * this.cols + col;
+    }
 
-            remaining--;
+    handleClick(i) {
+        if (!this.gameActive || !window.lastRoll) {
+            this.showMessage('Roll dice first!');
+            return;
+        }
+        
+        const piece = this.content[i];
+        if (!piece || piece.player !== this.currentPlayer) {
+            this.showMessage('Select your piece');
+            return;
         }
 
-        const result = row * this.cols + col;
-        return (result >= 0 && result < this.content.length) ? result : null;
+        // Verificar primeiro movimento (só com Tâb)
+        if (!piece.hasConverted && window.lastRoll.value !== 1) {
+            this.showMessage('First move must be with Tâb (1)');
+            return;
+        }
+
+        const target = this.calculateMove(i, window.lastRoll.value);
+        if (!target) {
+            this.showMessage('Invalid move');
+            return;
+        }
+
+        // Verificar se destino tem peça do mesmo jogador
+        if (this.content[target] && this.content[target].player === piece.player) {
+            this.showMessage('Blocked - your piece in destination');
+            return;
+        }
+
+        this.movePiece(i, target);
     }
 
     movePiece(from, to) {
         const piece = this.content[from];
-        const targetPiece = this.content[to];
         
         // Captura
-        if (targetPiece && targetPiece.player !== piece.player) {
+        if (this.content[to] && this.content[to].player !== piece.player) {
             this.showMessage('Piece captured!');
         }
 
-        // Atualizar estado
-        this.content[to] = piece;
-        this.content[from] = null;
-        
-        const wasUnmoved = this.pieceStates[from] === 'unmoved';
-        this.pieceStates[to] = wasUnmoved ? 'moved' : this.pieceStates[from];
-
-        // Conversão no primeiro movimento
-        if (wasUnmoved && window.lastRoll.value === 1) {
+        // Marcar conversão no primeiro movimento
+        if (!piece.hasConverted && window.lastRoll.value === 1) {
             piece.hasConverted = true;
         }
 
-        // Entrar na home do oponente
-        const opponentHomeRow = piece.player === 'player-1' ? 0 : 3;
-        if (Math.floor(to / this.cols) === opponentHomeRow && !piece.hasEnteredOpponentHome) {
-            piece.hasEnteredOpponentHome = true;
-        }
+        this.content[to] = piece;
+        this.content[from] = null;
 
-        // Histórico
-        if (!piece.history.includes(Math.floor(to / this.cols))) {
-            piece.history.push(Math.floor(to / this.cols));
-        }
-
-        // Mudar turno se não repeat
+        // Mudar turno se não for repeat
         if (!window.lastRoll.repeats) {
             this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
-            
-            // IA rola automaticamente
-            if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
-                setTimeout(() => this.triggerAIRoll(), 800);
-            }
+            if (this.isAITurn()) setTimeout(() => this.triggerAIRoll(), 800);
         }
 
         this.render();
@@ -191,44 +140,12 @@ class GameBoard {
     triggerAIRoll() {
         if (window.rollStickDice) {
             window.rollStickDice();
-        } else {
-            this.rollDice();
         }
-    }
-
-    async rollDice() {
-        if (this.rolling) return;
-        this.rolling = true;
-
-        this.showMessage('Rolling...');
-        
-        setTimeout(() => {
-            const faces = Array(4).fill().map(() => Math.random() < 0.5 ? 'light' : 'dark');
-            const lightCount = faces.filter(f => f === 'light').length;
-            const value = {0:6, 1:1, 2:2, 3:3, 4:4}[lightCount];
-            const repeats = [1, 4, 6].includes(value);
-            
-            window.lastRoll = { value, repeats, faces, lightCount };
-            
-            const names = {1:'Tâb', 2:'Itneyn', 3:'Teláteh', 4:'Arba\'ah', 6:'Sitteh'};
-            const msg = `Roll: ${value} (${names[value]}) - ${repeats ? 'Roll again!' : 'Next player'}`;
-            this.showMessage(msg);
-            
-            this.rolling = false;
-
-            // IA faz movimento automaticamente
-            if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
-                setTimeout(() => this.makeAIMove(), 500);
-            }
-        }, 800);
     }
 
     async makeAIMove() {
-        if (!window.IA) {
-            this.showMessage('AI not available');
-            return;
-        }
-
+        if (!window.IA || !this.gameActive) return;
+        
         try {
             const state = window.IA.fromGameBoard(this.content, this.cols, this.currentPlayer);
             const move = await window.IA.chooseMoveAI(state, window.lastRoll.value, this.options.difficulty);
@@ -243,7 +160,6 @@ class GameBoard {
             } else {
                 this.currentPlayer = 'player-1';
                 this.render();
-                this.showMessage('AI passed turn');
             }
         } catch (error) {
             console.error('AI error:', error);
@@ -252,33 +168,103 @@ class GameBoard {
         }
     }
 
+    passTurn() {
+        if (!this.gameActive) return;
+        
+        if (!window.lastRoll) {
+            this.showMessage('Roll dice first!');
+            return;
+        }
+
+        if (window.lastRoll.repeats) {
+            this.showMessage('Cannot pass - you have another roll!');
+            return;
+        }
+
+        this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
+        this.render();
+        
+        if (this.isAITurn()) {
+            setTimeout(() => this.triggerAIRoll(), 800);
+        }
+    }
+
+    resign() {
+        if (!this.gameActive) return;
+        
+        const winner = this.currentPlayer === 'player-1' ? 'Player 2' : 'Player 1';
+        this.gameActive = false;
+        this.showVictoryModal(winner, true);
+    }
+
+    showVictoryModal(winner, isResign = false) {
+    const modal = document.getElementById('victoryModal');
+    const message = document.getElementById('victoryMessage');
+    const reason = document.getElementById('victoryReason');
+    
+    if (modal && message && reason) {
+        message.innerHTML = `<strong>${winner} wins!</strong>`;
+        reason.textContent = isResign ? 'Player resigned' : 'All pieces captured';
+        modal.classList.remove('hidden');
+        
+        // Configurar botões
+        document.getElementById('newGameFromVictory').onclick = () => {
+            modal.classList.add('hidden');
+            this.showSetupModal();
+        };
+        
+        document.getElementById('closeVictoryModal').onclick = () => {
+            modal.classList.add('hidden');
+        };
+      }
+    }
+
+
+    showSetupModal() {
+    const setupModal = document.getElementById('setupModal');
+    if (setupModal) {
+        setupModal.classList.remove('hidden');
+    }
+    }
+
+    checkGameEnd() {
+        if (!this.gameActive) return;
+        
+        const p1Pieces = this.content.filter(p => p && p.player === 'player-1').length;
+        const p2Pieces = this.content.filter(p => p && p.player === 'player-2').length;
+        
+        if (p1Pieces === 0 || p2Pieces === 0) {
+            const winner = p1Pieces === 0 ? 'Player 2' : 'Player 1';
+            this.gameActive = false;
+            this.showVictoryModal(winner, false);
+        }
+    }
+
     render() {
-        this.boardElements.forEach((cell, i) => {
+        document.querySelectorAll('.board-square').forEach((cell, i) => {
             cell.innerHTML = '';
-            const piece = this.content[i];
-            
-            if (piece) {
+            if (this.content[i]) {
                 const token = document.createElement('div');
-                token.className = `board-token ${piece.player}`;
+                token.className = `board-token ${this.content[i].player}`;
                 
                 // Diferentes opacidades baseadas no estado
-                const state = this.pieceStates[i];
-                if (state === 'unmoved') token.style.opacity = '1.0';
-                else if (state === 'moved') token.style.opacity = '0.7';
-                else if (state === 'reached-last-row') token.style.opacity = '0.4';
-                
-                if (this.selectedFrom === i) {
-                    token.style.outline = '2px solid gold';
-                    token.style.boxShadow = '0 0 8px gold';
+                if (!this.content[i].hasConverted) {
+                    token.style.opacity = '1.0';
+                } else {
+                    token.style.opacity = '0.7';
                 }
                 
                 cell.appendChild(token);
             }
         });
-
-        const turnMsg = this.options.mode === 'pvc' && this.currentPlayer === 'player-2' 
-            ? "AI's turn" 
-            : `Player ${this.currentPlayer === 'player-1' ? '1' : '2'}'s turn`;
+        
+        // Atualizar mensagem de turno
+        let turnMsg;
+        if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
+            turnMsg = "AI's turn";
+        } else {
+            turnMsg = `Player ${this.currentPlayer === 'player-1' ? '1' : '2'}'s turn`;
+        }
         this.showMessage(turnMsg);
     }
 
@@ -287,73 +273,59 @@ class GameBoard {
         if (msgEl) msgEl.textContent = text;
     }
 
-    checkGameEnd() {
-        const p1Pieces = this.content.filter(p => p && p.player === 'player-1').length;
-        const p2Pieces = this.content.filter(p => p && p.player === 'player-2').length;
-        
-        if (p1Pieces === 0 || p2Pieces === 0) {
-            const winner = p1Pieces === 0 ? 'Player 2' : 'Player 1';
-            this.showMessage(`Game Over! ${winner} wins!`);
-            return true;
-        }
-        return false;
+    isAITurn() {
+        return this.options.mode === 'pvc' && this.currentPlayer === 'player-2';
     }
 
-    // Para compatibilidade com o sistema de dados existente
+    // Compatibilidade com sistema de dados
     handleStickRoll(roll) {
         window.lastRoll = roll;
-        this.showRollResult(roll);
         
-        if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
-            setTimeout(() => this.makeAIMove(), 500);
-        }
-    }
-
-    showRollResult(roll) {
         const names = {1:'Tâb', 2:'Itneyn', 3:'Teláteh', 4:'Arba\'ah', 6:'Sitteh'};
         const msg = `Roll: ${roll.value} (${names[roll.value]}) - ${roll.repeats ? 'Roll again!' : 'Next player'}`;
         this.showMessage(msg);
+        
+        if (this.isAITurn()) {
+            setTimeout(() => this.makeAIMove(), 500);
+        }
     }
 }
 
-// Inicialização
+// Inicialização e configuração dos botões
 function generateBoard(columns = 9, options = {}) {
     window.game = new GameBoard('board-container', columns, options);
-    
-    // Conectar botões
+    setupActionButtons();
+    return window.game;
+}
+
+function setupActionButtons() {
     const passBtn = document.getElementById('passBtn');
     const resignBtn = document.getElementById('resignBtn');
     
     if (passBtn) {
         passBtn.onclick = () => {
-            if (window.game && !window.lastRoll?.repeats) {
-                window.game.currentPlayer = window.game.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
-                window.game.render();
-                
-                if (window.game.options.mode === 'pvc' && window.game.currentPlayer === 'player-2') {
-                    setTimeout(() => window.game.triggerAIRoll(), 800);
-                }
-            }
+            if (window.game) window.game.passTurn();
         };
     }
     
     if (resignBtn) {
         resignBtn.onclick = () => {
-            if (window.game) {
-                const winner = window.game.currentPlayer === 'player-1' ? 'Player 2' : 'Player 1';
-                window.game.showMessage(`Resigned! ${winner} wins!`);
-            }
+            window.game.resign();
+                
         };
     }
-    
-    return window.game;
 }
 
-// Compatibilidade com sistema existente
+// Configurar quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    setupActionButtons();
+});
+
+// Expor funções globais
 window.generateBoard = generateBoard;
 window.GameBoard = GameBoard;
 
-// Listener para eventos de dados existentes
+// Listener para eventos de dados
 document.addEventListener('stickRoll', (e) => {
     if (window.game) {
         window.game.handleStickRoll(e.detail);
