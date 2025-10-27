@@ -185,8 +185,46 @@
 
   <div id="classModal" class="modal hidden">
     <div class="setup-container">
-      <h2>Classifications</h2>
-      <p>Leaderboard and scores...</p>
+      <h2>Game Classifications</h2>
+      
+      <!-- Filtros e controles -->
+      <div class="classification-controls">
+        <select id="classificationFilter">
+          <option value="all">All Players</option>
+          <option value="player1">Player 1 Only</option>
+          <option value="player2">Player 2 Only</option>
+        </select>
+        <button id="refreshClassification">Refresh</button>
+        <button id="clearClassification">Clear All</button>
+      </div>
+
+      <!-- Tabela de classificações -->
+      <div class="classification-container">
+        <table class="classification-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Wins</th>
+              <th>Losses</th>
+              <th>Win Rate</th>
+              <th>Best Time</th>
+              <th>Last Played</th>
+            </tr>
+          </thead>
+          <tbody id="classificationBody">
+            <!-- Os dados serão preenchidos via JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Estatísticas gerais -->
+      <div class="classification-stats">
+        <h3>Overall Statistics</h3>
+        <div id="overallStats">
+          <!-- Estatísticas serão preenchidas via JavaScript -->
+        </div>
+      </div>
     </div>
   </div>
 
