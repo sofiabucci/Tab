@@ -11,10 +11,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const btn = document.getElementById(btnId);
     const modal = document.getElementById(modalId);
 
-    btn.addEventListener('click', () => modal.classList.remove('hidden'));
+    if (btn && modal) {
+      btn.addEventListener('click', () => modal.classList.remove('hidden'));
+    }
   }
 
-  // Fechar modais ao clicar fora (área escura)
+  // Fechar modais ao clicar fora (área escura) - CORRIGIDO
   document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', function(e) {
       if (e.target === this) {
@@ -28,5 +30,14 @@ document.addEventListener('DOMContentLoaded', function() {
     container.addEventListener('click', function(e) {
       e.stopPropagation();
     });
+  });
+
+  // Fechar modal de regras com ESC key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.add('hidden');
+      });
+    }
   });
 });

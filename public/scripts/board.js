@@ -208,7 +208,6 @@ class GameBoard {
         }
     }
 
-    // CORREÇÃO: Aplicar movimento com lógica de captura corrigida
     applyMoveIndices(fromIdx, toIdx, keepTurn = false) {
         const piece = this.content[fromIdx];
         if (!piece) return false;

@@ -32,18 +32,81 @@ document.addEventListener('DOMContentLoaded', function() {
         if (diceResult) diceResult.innerHTML = '';
     }
 
-    function formatFaces(faces) {
-        // faces is array of 'light'|'dark'
-        return faces.map(f => f === 'light' ? FACE_LIGHT : FACE_DARK).join(' ');
+    function createStickVisual(faces) {
+        const stickContainer = document.createElement('div');
+        stickContainer.className = 'sticks-container';
+
+        faces.forEach((face, index) => {
+            const stick = document.createElement('div');
+            stick.className = 'stick';
+
+            // Criar 4 segmentos verticais para cada pau
+            for (let i = 0; i < 4; i++) {
+                const segment = document.createElement('div');
+                segment.className = `stick-segment ${face === 'light' ? 'stick-light' : 'stick-dark'}`;
+                stick.appendChild(segment);
+            }
+
+            stickContainer.appendChild(stick);
+        });
+
+        return stickContainer;
+    }
+
+    function formatResult(faces, lightCount, value, name, repeats) {
+        const container = document.createElement('div');
+        container.className = 'dice-result-container';
+
+        // Adicionar visualização dos paus
+        const sticksVisual = createStickVisual(faces);
+        container.appendChild(sticksVisual);
+
+        // Adicionar informações do resultado
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'dice-result-info';
+
+        const lightCountDiv = document.createElement('div');
+        lightCountDiv.className = 'dice-light-count';
+        lightCountDiv.innerHTML = `<strong>Light sides:</strong> ${lightCount}`;
+
+        const valueDiv = document.createElement('div');
+        valueDiv.className = 'dice-value';
+        valueDiv.innerHTML = `<strong>Value:</strong> ${value} — ${name}`;
+
+        const repeatsDiv = document.createElement('div');
+        repeatsDiv.className = `dice-repeats ${repeats ? 'dice-repeat-yes' : 'dice-repeat-no'}`;
+        repeatsDiv.innerHTML = repeats ? ' <strong>Roll again!</strong>' : '⏭️ Next player';
+
+        infoDiv.appendChild(lightCountDiv);
+        infoDiv.appendChild(valueDiv);
+        infoDiv.appendChild(repeatsDiv);
+        container.appendChild(infoDiv);
+
+        return container;
     }
 
     function rollOnce() {
         if (isRolling) return;
         isRolling = true;
 
-        if (diceResult) diceResult.textContent = 'Rolling...';
+        if (diceResult) {
+            diceResult.innerHTML = `
+                <div class="dice-rolling">
+                    <div class="dice-rolling-text"> Rolling...</div>
+                    <div class="dice-rolling-animation">
+                        ${Array(4).fill(0).map(() => `
+                            <div class="dice-rolling-stick">
+                                ${Array(4).fill(0).map(() => `
+                                    <div class="dice-rolling-segment"></div>
+                                `).join('')}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
-        const animationTime = 800;
+        const animationTime = 1000;
 
         setTimeout(() => {
             // Simulate 4 independent sticks
@@ -58,9 +121,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const name = VALUE_NAMES[value] || '';
             const repeats = (value === 1 || value === 4 || value === 6);
 
-            const resultHtml = `\n        <div><strong>Faces:</strong> ${formatFaces(faces)}</div>\n        <div><strong>Sum (light faces):</strong> ${lightCount}</div>\n        <div><strong>Value:</strong> ${value} — ${name} ${repeats ? '(replay allowed)' : ''}</div>\n      `;
+            // Create visual result
+            const resultElement = formatResult(faces, lightCount, value, name, repeats);
 
-            if (diceResult) diceResult.innerHTML = resultHtml;
+            if (diceResult) {
+                diceResult.innerHTML = '';
+                diceResult.appendChild(resultElement);
+            }
 
             // Store last roll globally
             window.stickDiceLastRoll = {

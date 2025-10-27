@@ -120,10 +120,65 @@
 
   <!-- Outras modais -->
   <div id="rulesModal" class="modal hidden">
-    <div class="setup-container">
+    <div class="setup-container rules-modal-container">
       <h2>Tâb Game Rules</h2>
-      <div style="text-align: left; max-height: 400px; overflow-y: auto; padding: 10px; line-height: 1.6;">
-        <!-- conteúdo das regras -->
+      <div class="rules-content">
+        <h3>🎲 The Game</h3>
+        <p>Tâb is an ancient Egyptian board game for two players played on a board with 4 rows and an odd number of columns (usually 9).</p>
+        
+        <h3>🎯 Setup</h3>
+        <p>Each player starts with all pieces in their home row:</p>
+        <ul>
+          <li><strong>Player 1 (White)</strong>: Bottom row</li>
+          <li><strong>Player 2 (Maroon)</strong>: Top row</li>
+        </ul>
+        
+        <h3>🎲 Stick Dice</h3>
+        <p>Instead of traditional dice, Tâb uses 4 sticks with two faces:</p>
+        <ul>
+          <li><strong>Light side</strong> ◻ (flat/clear)</li>
+          <li><strong>Dark side</strong> ◼ (rounded/dark)</li>
+        </ul>
+        
+        <h3>📊 Stick Values</h3>
+        <table class="rules-table">
+          <tr><th>Light Sides</th><th>Value</th><th>Name</th><th>Repeats</th><th>Probability</th></tr>
+          <tr><td>0</td><td>6</td><td>Sitteh</td><td>✓</td><td>6%</td></tr>
+          <tr><td>1</td><td>1</td><td>Tâb</td><td>✓</td><td>25%</td></tr>
+          <tr><td>2</td><td>2</td><td>Itneyn</td><td>✗</td><td>38%</td></tr>
+          <tr><td>3</td><td>3</td><td>Teláteh</td><td>✗</td><td>25%</td></tr>
+          <tr><td>4</td><td>4</td><td>Arba'ah</td><td>✓</td><td>6%</td></tr>
+        </table>
+        
+        <h3>🚶 Movement Rules</h3>
+        <ul>
+          <li><strong>First Move</strong>: Pieces can only make their first move with Tâb (value 1)</li>
+          <li><strong>Direction</strong>:
+            <ul>
+              <li>Rows 0 & 2: Move right →</li>
+              <li>Rows 1 & 3: Move left ←</li>
+            </ul>
+          </li>
+          <li><strong>Path</strong>: Pieces move in a U-shaped pattern around the board</li>
+        </ul>
+        
+        <h3>⚡ Special Rules</h3>
+        <ul>
+          <li><strong>Capturing</strong>: Land on an opponent's piece to capture it</li>
+          <li><strong>Final Row</strong>: Once a piece reaches the opponent's home row, it becomes "final"</li>
+          <li><strong>Final Row Movement</strong>: Can only move in final row if no pieces remain in your home row</li>
+          <li><strong>No Return</strong>: Pieces cannot return to their home row after leaving</li>
+        </ul>
+        
+        <h3>🏆 Winning</h3>
+        <p>The game ends when one player captures all of the opponent's pieces!</p>
+        
+        <h3>⏭️ Turn Rules</h3>
+        <ul>
+          <li>Roll values 1, 4, and 6 allow you to roll again</li>
+          <li>You can only pass if no legal moves are available</li>
+          <li>If you have a legal move, you must make it</li>
+        </ul>
       </div>
     </div>
   </div>
