@@ -8,31 +8,32 @@ class GameBoard {
         this.cols = parseInt(cols) || 9;
         this.content = new Array(this.cols*4);
         this.boardElements = new Array(this.cols*4);
+        
         // Store game options
         this.options = {
-            mode: options.mode || 'pvp', // 'pvp' | 'pvc' | 'pvpo'
+            mode: options.mode || 'pvp',
             difficulty: options.difficulty || 'medium',
             firstPlayer: options.firstPlayer || 'player-1'
         };
 
-        // Normalize firstPlayer values (accept 'player1','player-1','player2','player-2')
+        // Normalize firstPlayer values
         const fp = ('' + this.options.firstPlayer).toString();
         const normalizedFirst = (fp === 'player2' || fp === 'player-2') ? 'player-2' : 'player-1';
         this.options.firstPlayer = normalizedFirst;
 
-        // Set starting player code: 'player-1' or 'player-2'
+        // Set starting player code
         this.currentPlayer = this.options.firstPlayer === 'player-2' ? 'player-2' : 'player-1';
+        
+        // Track piece states: 'unmoved', 'moved', 'reached-last-row'
+        this.pieceStates = new Array(this.cols*4);
+        this.pieceStates.fill(null);
 
         const parent = document.getElementById(id);
-        // Clear existing board if present
         parent.innerHTML = '';
 
         const board = document.createElement('div');
         board.className = 'board';
-        
-        // DEFINE A VARIÁVEL CSS --cols PARA CONTROLE DE TAMANHO
         board.style.setProperty('--cols', this.cols.toString());
-        
         parent.appendChild(board);
 
         board.style.gridTemplateRows = `repeat(4, auto)`;
@@ -45,43 +46,133 @@ class GameBoard {
             cell.dataset.index = i;
             board.appendChild(cell);
 
-            // Add click event (play handler may be attached later)
             cell.addEventListener('click', () => this.play && this.play(i));
-
             this.boardElements[i] = cell;  
         }
 
-        // Initialize content array with logical objects representing pieces or null
-        // We'll use objects like { player: 'player-1' } or null
+        // Initialize content array
         this.content.fill(null);
 
-        // Place initial pieces: fill the first row (row 0) for player-2 and last row (row 3) for player-1
-        // Use full row population so pieces are visible and countable
+        // Place initial pieces
         for (let c = 0; c < this.cols; c++) {
-            // top row indices 0..cols-1 belong to player-2 by visual convention
+            // Player 2 (top row)
             this.content[c] = { player: 'player-2' };
-            // bottom row indices 3*cols .. 4*cols-1 belong to player-1
+            this.pieceStates[c] = 'unmoved';
+            
+            // Player 1 (bottom row)
             const idx = 3*this.cols + c;
             this.content[idx] = { player: 'player-1' };
+            this.pieceStates[idx] = 'unmoved';
         }
 
-        // Render initial state
         this.render();
 
-        // Listen to stickRoll events from dice.js to drive turns
+        // Listen to stickRoll events
         document.addEventListener('stickRoll', async (e) => {
-            const roll = e.detail; // { value, repeats, ... }
-            // If game mode is player vs computer and it's AI's turn, trigger AI move(s)
+            const roll = e.detail;
             if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
-                await this.handleAIMove(roll.value, roll.repeats);
+                // Small delay to make AI move visible
+                setTimeout(() => {
+                    this.handleAIMove(roll.value, roll.repeats);
+                }, 500);
             }
         });
-
     }
 
-    // Render tokens based on this.content
+    // Get row from index
+    getRow(index) {
+        return Math.floor(index / this.cols);
+    }
+
+    // Get column from index
+    getCol(index) {
+        return index % this.cols;
+    }
+
+    // Get index from row and column
+    getIndex(row, col) {
+        return row * this.cols + col;
+    }
+
+    // CORREÇÃO: Direção de movimento baseada apenas na linha
+    getMovementDirection(row) {
+        // Linhas 0 e 2: esquerda para direita (→)
+        // Linhas 1 e 3: direita para esquerda (←)
+        return (row === 0 || row === 2) ? 1 : -1;
+    }
+
+    // CORREÇÃO: Cálculo de posição seguindo o padrão correto do Tâb
+    calculateNextPosition(fromIndex, steps) {
+        if (fromIndex === null || fromIndex === undefined) return null;
+        
+        const fromRow = this.getRow(fromIndex);
+        const fromCol = this.getCol(fromIndex);
+        const player = this.content[fromIndex]?.player;
+        
+        if (!player) return null;
+
+        let currentRow = fromRow;
+        let currentCol = fromCol;
+        let remainingSteps = steps;
+
+        while (remainingSteps > 0) {
+            const direction = this.getMovementDirection(currentRow);
+            let nextCol = currentCol + direction;
+            let nextRow = currentRow;
+
+            // Verificar transições entre linhas
+            if (nextCol < 0) {
+                // Mudar para linha anterior
+                if (currentRow === 1) {
+                    nextRow = 0;
+                    nextCol = 0;
+                } else if (currentRow === 3) {
+                    nextRow = 2;
+                    nextCol = this.cols - 1;
+                } else {
+                    return null; // Movimento inválido
+                }
+            } else if (nextCol >= this.cols) {
+                // Mudar para próxima linha
+                if (currentRow === 0) {
+                    nextRow = 1;
+                    nextCol = this.cols - 1;
+                } else if (currentRow === 2) {
+                    // Da linha 2 pode ir para linha 3
+                    nextRow = 3;
+                    nextCol = this.cols - 1;
+                } else {
+                    return null; // Movimento inválido
+                }
+            }
+
+            // Verificar limites
+            if (nextRow < 0 || nextRow >= 4 || nextCol < 0 || nextCol >= this.cols) {
+                return null;
+            }
+
+            currentRow = nextRow;
+            currentCol = nextCol;
+            remainingSteps--;
+        }
+
+        return this.getIndex(currentRow, currentCol);
+    }
+
+    // CORREÇÃO: Verificar se há peças na linha inicial
+    hasPiecesInHomeRow(player) {
+        const homeRow = player === 'player-1' ? 3 : 0;
+        for (let c = 0; c < this.cols; c++) {
+            const idx = this.getIndex(homeRow, c);
+            if (this.content[idx] && this.content[idx].player === player) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Render tokens with state-based transparency
     render() {
-        // update message area with a friendly prompt when it's a player's turn
         try {
             const msg = document.getElementById('gameMessage');
             if (msg) {
@@ -94,87 +185,140 @@ class GameBoard {
         
         for (let i = 0; i < this.boardElements.length; i++) {
             const cell = this.boardElements[i];
-            // remove existing token visuals inside cell
-            // keep only the square container, remove tokens
             Array.from(cell.querySelectorAll('.board-token')).forEach(t => t.remove());
             const obj = this.content[i];
             if (obj && obj.player) {
                 const token = document.createElement('div');
-                // ensure token classes match the known palette
                 token.className = `board-token ${obj.player === 'player-1' ? 'player-1' : 'player-2'}`;
+                
+                // Apply transparency based on piece state
+                const state = this.pieceStates[i];
+                if (state === 'unmoved') {
+                    token.style.opacity = '1.0';
+                } else if (state === 'moved') {
+                    token.style.opacity = '0.7';
+                } else if (state === 'reached-last-row') {
+                    token.style.opacity = '0.4';
+                }
+                
                 token.dataset.index = i;
-                // add an accessible label so users know which player owns the piece
                 token.setAttribute('aria-label', obj.player);
                 cell.appendChild(token);
             }
         }
     }
 
-    // Apply a move given flat indices
+    // CORREÇÃO: Aplicar movimento com lógica de captura corrigida
     applyMoveIndices(fromIdx, toIdx, keepTurn = false) {
         const piece = this.content[fromIdx];
         if (!piece) return false;
         
-        // determine if capture will happen
-        const wasCapture = !!(this.content[toIdx] && this.content[toIdx].player && this.content[toIdx].player !== piece.player);
+        // Verificar captura
+        const targetPiece = this.content[toIdx];
+        const wasCapture = targetPiece && targetPiece.player !== piece.player;
 
-        // replace destination (simple capture/replace semantics)
-        this.content[fromIdx] = null;
-        this.content[toIdx] = { player: piece.player };
+        // Atualizar estado da peça
+        const toRow = this.getRow(toIdx);
+        const lastRow = piece.player === 'player-1' ? 0 : 3; // Linha final oposta
         
-        // flip current player unless keepTurn requested
-        if (!keepTurn) {
+        if (toRow === lastRow && this.pieceStates[fromIdx] !== 'reached-last-row') {
+            this.pieceStates[toIdx] = 'reached-last-row';
+        } else if (this.pieceStates[fromIdx] === 'unmoved') {
+            this.pieceStates[toIdx] = 'moved';
+        } else {
+            this.pieceStates[toIdx] = this.pieceStates[fromIdx];
+        }
+
+        // Mover peça
+        this.content[fromIdx] = null;
+        this.pieceStates[fromIdx] = null;
+        this.content[toIdx] = piece;
+        
+        // Remover peça capturada se houver
+        if (wasCapture) {
+            this.content[toIdx] = piece; // A peça que se moveu fica na posição
+        }
+
+        // Verificar se o jogador pode jogar novamente
+        const lastRoll = window.stickDiceLastRoll;
+        const canPlayAgain = lastRoll && lastRoll.repeats && !keepTurn;
+
+        if (!canPlayAgain) {
             this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
         }
-        this.render();
-        // Emit moveEnded so dice resets
-        document.dispatchEvent(new CustomEvent('moveEnded'));
 
-        // Notify about capture if applicable
+        this.render();
+        
+        if (!canPlayAgain) {
+            document.dispatchEvent(new CustomEvent('moveEnded'));
+        }
+
+        // Notificar sobre captura
         try {
             const msg = document.getElementById('gameMessage');
             if (msg && wasCapture) {
-                msg.textContent = 'Line completed: opponent piece captured!';
+                msg.textContent = 'Piece captured!';
             }
         } catch (err) { /* ignore */ }
+
+        // Verificar fim de jogo
+        this.checkGameOver();
+        
         return true;
     }
 
-    // Handle a user click on square index 'from'
+    // CORREÇÃO: Lógica principal do movimento
     play(fromIndex){
-        // If no pending roll available, ignore click
+        // Verificar se há roll disponível
         const last = window.stickDiceLastRoll;
         if (!last) {
             const msg = document.getElementById('gameMessage');
             if (msg) msg.textContent = 'Wait: no roll available. Click Roll.';
             return;
         }
+
         const piece = this.content[fromIndex];
         if (!piece) {
             const msg = document.getElementById('gameMessage');
             if (msg) msg.textContent = 'Invalid selection: no piece in this square.';
             return;
         }
-        // Only allow selecting your pieces
+
         if (piece.player !== this.currentPlayer) {
             const msg = document.getElementById('gameMessage');
             if (msg) msg.textContent = "This is not your piece. Wait for your turn.";
             return;
         }
 
-        // For now, calculate a single forward move: add value to index (towards other side)
-        const value = last.value;
-        // movement direction: player-1 moves up (towards decreasing index) from bottom row to top -> subtract cols
-        const dir = piece.player === 'player-1' ? -this.cols : this.cols;
-        const target = fromIndex + dir * (value);
+        // CORREÇÃO: Verificar regra do primeiro movimento
+        const pieceState = this.pieceStates[fromIndex];
+        if (pieceState === 'unmoved' && last.value !== 1) {
+            const msg = document.getElementById('gameMessage');
+            if (msg) msg.textContent = 'First move must be with Tâb (value 1)';
+            return;
+        }
 
-        if (target < 0 || target >= this.content.length) {
+        // CORREÇÃO: Verificar restrição de movimento na última linha
+        const fromRow = this.getRow(fromIndex);
+        const lastRow = piece.player === 'player-1' ? 0 : 3;
+        if (fromRow === lastRow && this.pieceStates[fromIndex] === 'reached-last-row') {
+            if (this.hasPiecesInHomeRow(piece.player)) {
+                const msg = document.getElementById('gameMessage');
+                if (msg) msg.textContent = 'Cannot move in last row while pieces remain in home row';
+                return;
+            }
+        }
+
+        // Calcular posição alvo
+        const target = this.calculateNextPosition(fromIndex, last.value);
+        
+        if (target === null || target < 0 || target >= this.content.length) {
             const msg = document.getElementById('gameMessage');
             if (msg) msg.textContent = 'Invalid move: out of board bounds.';
             return;
         }
 
-        // If destination occupied by own piece, invalid
+        // Verificar se o destino tem peça do mesmo jogador
         const dest = this.content[target];
         if (dest && dest.player === piece.player) {
             const msg = document.getElementById('gameMessage');
@@ -182,58 +326,112 @@ class GameBoard {
             return;
         }
 
-        // Apply move
-        const success = this.applyMoveIndices(fromIndex, target);
+        // CORREÇÃO: Verificar retorno à linha inicial
+        const targetRow = this.getRow(target);
+        const homeRow = piece.player === 'player-1' ? 3 : 0;
+        if (targetRow === homeRow && pieceState !== 'unmoved') {
+            const msg = document.getElementById('gameMessage');
+            if (msg) msg.textContent = 'Cannot return to home row.';
+            return;
+        }
+
+        // Aplicar movimento
+        const success = this.applyMoveIndices(fromIndex, target, last.repeats);
         if (success) {
             const msg = document.getElementById('gameMessage');
-            if (msg) msg.textContent = `Move executed: ${fromIndex} → ${target}`;
-            console.log('Move applied', { fromIndex, target });
+            if (msg) {
+                if (last.repeats) {
+                    msg.textContent = `Move executed! Roll again.`;
+                } else {
+                    msg.textContent = `Move executed: ${fromIndex} → ${target}`;
+                }
+            }
         }
     }
 
     async handleAIMove(stickValue, repeats) {
-        // Build IA state from current content
-        if (!window.IA) return;
-        const state = window.IA.fromGameBoard(this.content, this.cols, this.currentPlayer);
-        // difficulty mapping: setup uses 'easy'|'medium'|'hard'
-        const choice = await window.IA.chooseMoveAI(state, this.options.difficulty);
-        if (!choice || choice.type === 'PASS') {
-            // End AI's turn
-            this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
-            document.dispatchEvent(new CustomEvent('moveEnded'));
-            return;
-        }
-        const indices = window.IA.moveToIndices(choice, this.cols);
-        if (indices.type === 'PASS') {
-            this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
-            document.dispatchEvent(new CustomEvent('moveEnded'));
+        if (!window.IA) {
+            console.warn('IA module not loaded');
             return;
         }
 
-        // Apply the move visually
-        this.applyMoveIndices(indices.from, indices.to);
-        // If roll allows repeats and repeats is true, AI might play again; dice.js will dispatch another stickRoll when user presses roll
+        try {
+            // Construir estado para a IA
+            const state = window.IA.fromGameBoard(this.content, this.cols, this.currentPlayer);
+            
+            // Escolher movimento
+            const choice = await window.IA.chooseMoveAI(state, this.options.difficulty);
+            
+            if (!choice || choice.type === 'PASS') {
+                // Finalizar turno da IA
+                this.currentPlayer = 'player-1';
+                this.render();
+                document.dispatchEvent(new CustomEvent('moveEnded'));
+                return;
+            }
+
+            // Converter movimento para índices
+            const indices = window.IA.moveToIndices(choice, this.cols);
+            
+            if (indices.type === 'PASS') {
+                this.currentPlayer = 'player-1';
+                this.render();
+                document.dispatchEvent(new CustomEvent('moveEnded'));
+                return;
+            }
+
+            // Aplicar movimento visualmente
+            this.applyMoveIndices(indices.from, indices.to);
+
+        } catch (error) {
+            console.error('AI move error:', error);
+            // Em caso de erro, passar a vez
+            this.currentPlayer = 'player-1';
+            this.render();
+            document.dispatchEvent(new CustomEvent('moveEnded'));
+        }
     }
 
-    // Determine whether the current player has any legal move for the last roll
+    // Determinar se o jogador atual tem algum movimento legal
     canPass() {
         const last = window.stickDiceLastRoll;
-        if (!last) return false; // no roll => cannot determine, don't allow pass
+        if (!last) return false;
+
         const value = last.value;
-        // scan all pieces of currentPlayer and see if any can legally move 'value' steps
+        
         for (let i = 0; i < this.content.length; i++) {
             const piece = this.content[i];
             if (!piece || piece.player !== this.currentPlayer) continue;
-            const dir = piece.player === 'player-1' ? -this.cols : this.cols;
-            const target = i + dir * value;
-            if (target < 0 || target >= this.content.length) continue;
-            const dest = this.content[target];
-            if (!dest || dest.player !== piece.player) {
-                // found at least one legal destination
-                return false; // cannot pass because a move exists
+
+            // Verificar regra do primeiro movimento
+            const pieceState = this.pieceStates[i];
+            if (pieceState === 'unmoved' && value !== 1) continue;
+
+            // Verificar restrição da última linha
+            const fromRow = this.getRow(i);
+            const lastRow = piece.player === 'player-1' ? 0 : 3;
+            if (fromRow === lastRow && pieceState === 'reached-last-row' && this.hasPiecesInHomeRow(piece.player)) {
+                continue;
             }
+
+            // Calcular alvo
+            const target = this.calculateNextPosition(i, value);
+            if (target === null || target < 0 || target >= this.content.length) continue;
+
+            // Verificar destino
+            const dest = this.content[target];
+            if (dest && dest.player === piece.player) continue;
+
+            // Verificar retorno à linha inicial
+            const targetRow = this.getRow(target);
+            const homeRow = piece.player === 'player-1' ? 3 : 0;
+            if (targetRow === homeRow && pieceState !== 'unmoved') continue;
+
+            // Movimento válido encontrado
+            return false;
         }
-        // no legal moves found — passing is allowed
+
+        // Nenhum movimento legal encontrado
         return true;
     }
 
@@ -251,29 +449,23 @@ class GameBoard {
         this.play = function(){ /* game ended */ };
     }
 
-    // Check if game is over (all pieces reached opposite side)
+    // Check if game is over
     checkGameOver() {
-        let player1Finished = true;
-        let player2Finished = true;
+        let player1Pieces = 0;
+        let player2Pieces = 0;
 
-        // Check if all player-1 pieces are in top row (indices 0 to cols-1)
-        for (let i = 0; i < this.cols; i++) {
-            if (!this.content[i] || this.content[i].player !== 'player-1') {
-                player1Finished = false;
-                break;
+        for (let i = 0; i < this.content.length; i++) {
+            if (this.content[i]) {
+                if (this.content[i].player === 'player-1') {
+                    player1Pieces++;
+                } else {
+                    player2Pieces++;
+                }
             }
         }
 
-        // Check if all player-2 pieces are in bottom row (indices 3*cols to 4*cols-1)
-        for (let i = 3 * this.cols; i < 4 * this.cols; i++) {
-            if (!this.content[i] || this.content[i].player !== 'player-2') {
-                player2Finished = false;
-                break;
-            }
-        }
-
-        if (player1Finished || player2Finished) {
-            const winner = player1Finished ? 'Player 1' : 'Player 2';
+        if (player1Pieces === 0 || player2Pieces === 0) {
+            const winner = player1Pieces === 0 ? 'Player 2' : 'Player 1';
             try {
                 const msg = document.getElementById('gameMessage');
                 if (msg) msg.textContent = `Game Over! ${winner} wins!`;
@@ -285,7 +477,6 @@ class GameBoard {
         }
         return false;
     }
-
 }
 
 // Expose a helper to generate the board with options
@@ -294,28 +485,28 @@ function generateBoard(columns, options = {}) {
     const cols = parseInt(columns) || 9;
     // Create a GameBoard instance and store it globally if needed
     window._currentGameBoard = new GameBoard('board-container', cols, options);
-    // wire UI controls (pass/resign) to the generated board
+    
+    // Wire UI controls (pass/resign) to the generated board
     try {
         const passBtn = document.getElementById('passBtn');
         const resignBtn = document.getElementById('resignBtn');
+        
         if (passBtn) {
             passBtn.disabled = false;
             passBtn.onclick = () => {
                 const gb = window._currentGameBoard;
                 if (!gb) return;
                 if (gb.canPass()) {
-                    // allowed only when truly no move exists
                     document.dispatchEvent(new CustomEvent('playerPassed', { detail: { player: gb.currentPlayer } }));
-                    // flip turn
                     gb.currentPlayer = gb.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
                     gb.render();
                 } else {
-                    // show message
                     const msg = document.getElementById('gameMessage');
                     if (msg) msg.textContent = 'A move is still possible - you cannot pass.';
                 }
             };
         }
+        
         if (resignBtn) {
             resignBtn.onclick = () => {
                 const gb = window._currentGameBoard;
@@ -323,91 +514,14 @@ function generateBoard(columns, options = {}) {
                 gb.resign();
             };
         }
-    } catch (err) { console.warn('Could not wire action buttons', err); }
+    } catch (err) { 
+        console.warn('Could not wire action buttons', err); 
+    }
+    
     return window._currentGameBoard;
 }
 
-// Setup form handling
-document.addEventListener('DOMContentLoaded', function() {
-    const setupForm = document.getElementById('setupForm');
-    const setupModal = document.getElementById('setupModal');
-    const setupReset = document.getElementById('setupReset');
-    const gameModeSelect = document.getElementById('gameMode');
-    const difficultyGroup = document.getElementById('difficultyGroup');
-
-    if (gameModeSelect) {
-        gameModeSelect.addEventListener('change', () => {
-            if (gameModeSelect.value === 'pvc') {
-                difficultyGroup.style.display = 'flex';
-            } else {
-                difficultyGroup.style.display = 'none';
-            }
-        });
-    }
-
-    if (setupForm) {
-        setupForm.addEventListener('submit', e => {
-            e.preventDefault();
-
-            const mode = gameModeSelect.value;
-            const difficulty = document.getElementById('difficulty').value;
-            const columns = parseInt(document.getElementById('boardSize').value);
-            const firstPlayer = document.getElementById('firstPlayerSelect').value;
-
-            // Normalize and pass options to generateBoard so the board can be configured
-            const normalizedFirst = (firstPlayer === 'player2' || firstPlayer === 'player-2') ? 'player-2' : 'player-1';
-            const options = {
-                mode: mode || 'pvp',
-                difficulty: mode === 'pvc' ? (difficulty || 'medium') : undefined,
-                // normalize to 'player-1' or 'player-2' used by GameBoard
-                firstPlayer: normalizedFirst
-            };
-
-            if (typeof generateBoard === 'function') {
-                const gb = generateBoard(columns, options);
-                
-                // If AI starts first in pvc mode, trigger a roll so AI can act
-                if (options.mode === 'pvc' && options.firstPlayer === 'player-2') {
-                    // trigger an actual dice roll so the AI receives a stickRoll event
-                    if (typeof window.rollStickDice === 'function') {
-                        window.rollStickDice();
-                    } else if (window.stickDiceLastRoll && typeof document !== 'undefined') {
-                        document.dispatchEvent(new CustomEvent('stickRoll', { detail: window.stickDiceLastRoll }));
-                    }
-                }
-            } else {
-                // Fallback: try creating GameBoard directly if generateBoard isn't available
-                if (window.GameBoard) {
-                    // remove existing board container content before creating
-                    const parent = document.getElementById('board-container');
-                    parent.innerHTML = '';
-                    new GameBoard('board-container', columns, options);
-                }
-            }
-
-            if (setupModal) {
-                setupModal.classList.add('hidden');
-            }
-
-            console.log('Game settings:', { 
-                mode, 
-                difficulty: mode === 'pvc' ? difficulty : 'N/A', 
-                columns, 
-                firstPlayer 
-            });
-        });
-    }
-
-    if (setupReset) {
-        setupReset.addEventListener('click', () => {
-            if (setupForm) setupForm.reset();
-        });
-    }
-
-    // Initial load with default columns (9)
-    generateBoard(9, { firstPlayer: 'player1' });
-});
-
+// Setup form handling - REMOVIDO (já existe em setup.js)
 // Expose generateBoard and GameBoard to global scope
 window.generateBoard = generateBoard;
 window.GameBoard = GameBoard;
