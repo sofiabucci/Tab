@@ -1,0 +1,106 @@
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --light-paper: #f4f1ea;
+    --light-wood: #d2b48c;
+    --dark-wood: #8b5a2b;
+    --gold-glow: #ffd700;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    display: grid;
+    place-items: center;
+    min-height: 90vh;
+    background-color: var(--light-paper); /* Use theme color */
+}
+
+/* Board Container */
+#game-container {
+    /* Grid layout properties */
+    display: grid;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    padding: 30px;
+
+    /* Aesthetic properties */
+    background: var(--light-wood);
+    border: 6px solid var(--dark-wood);
+    border-radius: 15px;
+    box-shadow: 0px 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+/* Squares (tiles) */
+.square {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 55px;
+    height: 55px;
+
+    background: var(--light-paper);
+    border: 2px solid var(--dark-wood);
+    border-radius: 10px;
+
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.2);
+    /* Added transitions for highlight effect */
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s, border-color 0.2s;
+}
+
+.square:hover {
+    transform: scale(1.05);
+    box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Tokens */
+.token {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Player tokens */
+.player2 {
+    background: maroon;
+    color: white;
+    border: 2px solid black;
+}
+
+.player1 {
+    background: white;
+    color: black;
+    border: 2px solid black;
+}
+
+/* Hover effect on tokens */
+.token:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+
+/* --- JavaScript Interaction Classes --- */
+
+/* This class is added by JS when a token is clicked */
+.token.selected {
+    transform: scale(1.2); /* "Grows slightly" */
+    box-shadow: 0 0 15px 5px var(--gold-glow); /* Adds a strong golden glow */
+}
+
+/* This class is added by JS to valid target squares */
+.square.highlight {
+    background-color: #fffacd; /* "Lights up" */
+    border: 3px solid var(--gold-glow);
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--gold-glow);
+}
