@@ -29,6 +29,7 @@ export class Board {
     this.currentPlayer = 'player-1';
     /** @type {boolean} */
     this.gameActive = true;
+    this.boardFlow = movementMap();
 
     this.#initBoardDOM();
     this.#setupPieces();
@@ -65,48 +66,73 @@ export class Board {
     }
     // Player 1 (bottom)
     for (let c = 0; c < this.cols; c++) {
-      this.cells[(this.rows - 1) * this.cols + c] = new Piece('player-1');
+      this.cells[3 * this.cols + c] = new Piece('player-1');
     }
   }
 
   // ────────────────────────────────────────────────
   // MOVEMENT LOGIC
   // ────────────────────────────────────────────────
+  getRowFromIndex(index) {
+    return Math.floor(index / this.cols);
+  }
+  getColFromIndex(index) {
+    return index % this.cols;
+  }
 
-  /**
-   * Calculates next index after moving `steps` spaces in the snake path.
-   * @param {number} from - Starting index.
-   * @param {number} steps - Number of moves.
-   * @returns {number|null}
-   */
-  calculateTarget(from, steps) {
-    if (from == null || steps <= 0) return null;
-
-    let currentRow = Math.floor(from / this.cols);
-    let currentCol = from % this.cols;
-
-    while (steps > 0) {
-      const direction = this.#getRowDirection(currentRow);
-      currentCol += direction;
-
-      if (currentCol < 0 || currentCol >= this.cols) {
-        const paired = (currentRow === 0) ? 1 : (currentRow === 1) ? 2 : (currentRow === 2) ? 1 : 2;
-        currentRow = paired;
-        currentCol = direction > 0 ? this.cols - 1 : 0;
+  movementMap() {
+    let flow = new Map();
+    for (let i = 0; i < this.cells.length; i++) {
+      switch (this.getRowFromIndex(i)) {
+        case 0:
+        case 2:
+          flow.set(i, [i - 1]);
+          break;
+        case 1:
+        case 3:
+          flow.set(i, [i + 1]);
+          break;
+        default:
+          return null;
       }
-      steps--;
     }
 
-    if (currentRow < 0 || currentRow >= this.rows) return null;
-    return currentRow * this.cols + currentCol;
+    flow.set(0, [this.cols]);
+    flow.set(4 * this.cols - 1, [3 * this.cols - 1]);
+
+    flow.set(2 * this.cols - 1, [3 * this.cols - 1, this.cols - 1]);
+    flow.set(2 * this.cols, [this.cols, 3 * this.cols]);
+
+    return flow;
+  }
+  /**
+   * Calculates next index after moving `steps` spaces in the snake path.
+   * @param {number} fromIndex - Starting index.
+   * @param {number} steps - Number of moves. Between 0 and 6 inclusive.
+   * @returns {number[]|null} Array of length 2. Index 0 contains the normal snake path result. Index 1 contains the forked path.
+   */
+  calculateTarget(fromIndex, steps) {
+    if(fromIndex == null || steps < 0 || steps > 6) return null;
+
+    let result = new Array();
+    this.calculateTargetR(fromIndex , steps, result);
+    return result;
   }
 
-  #getRowDirection(row) {
-    return (row === 0 || row === 2) ? -1 : 1;
+  calculateTargetR(fromIndex, steps, result) {
+    if (steps === 0) {
+      result.push(fromIndex);
+      return;
+    } else {
+      let arr = this.boardFlow.get(fromIndex);
+      arr.forEach(tile => {
+        this.calculateTargetR(tile, steps - 1, result);
+      });
+    }
   }
 
   /**
-   * Moves a piece from index A to B, handles captures and promotion.
+   * Moves a piece from index A to B. Does not validate.
    * @param {number} from
    * @param {number} to
    */
@@ -121,14 +147,6 @@ export class Board {
       this.cells[to] = null;
       this.#showMessage(`${piece.player} captured an enemy piece!`);
     }
-
-    // Mark as moved
-    if (piece.state === 'unmoved') piece.markMoved();
-
-    // Promotion rule: entering enemy’s base row
-    const row = Math.floor(to / this.cols);
-    if (piece.player === 'player-1' && row === 0) piece.promote();
-    if (piece.player === 'player-2' && row === 3) piece.promote();
 
     // Move
     this.cells[to] = piece;
@@ -162,6 +180,7 @@ export class Board {
       }
 
       const target = this.calculateTarget(index, value);
+      
       if (target == null) {
         this.#showMessage('Invalid move.');
         return;
