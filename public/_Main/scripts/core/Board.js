@@ -18,21 +18,33 @@ export class Board {
   constructor(containerId, cols = 9) {
     /** @type {HTMLElement} */
     this.container = document.getElementById(containerId);
+
     /** @type {number} */
     this.cols = cols;
+
     /** @type {number} */
     this.rows = 4;
+
+    /** @type {number} */
+    this.selectedPiece = null;
+
     /** @type {(Piece|null)[]} */
     this.cells = Array(this.cols * this.rows).fill(null);
 
     /** @type {string} */
     this.currentPlayer = 'player-1';
+
     /** @type {boolean} */
     this.gameActive = true;
+    
+    /** @type {Map.<number, number[]>} */
     this.boardFlow = movementMap();
+    /** @type {number[]} */
+    this.possibleMoves = [];
+    
 
-    this.#initBoardDOM();
-    this.#setupPieces();
+    this.initBoardDOM();
+    this.setupPieces();
     this.render();
   }
 
@@ -40,7 +52,7 @@ export class Board {
   // INITIALIZATION
   // ────────────────────────────────────────────────
 
-  #initBoardDOM() {
+  initBoardDOM() {
     if (!this.container) throw new Error('Board container not found');
     this.container.innerHTML = '';
 
@@ -59,7 +71,7 @@ export class Board {
     this.container.appendChild(this.boardEl);
   }
 
-  #setupPieces() {
+  setupPieces() {
     // Player 2 (top)
     for (let c = 0; c < this.cols; c++) {
       this.cells[c] = new Piece('player-2');
@@ -145,7 +157,7 @@ export class Board {
     // Capture
     if (target && target.player !== piece.player) {
       this.cells[to] = null;
-      this.#showMessage(`${piece.player} captured an enemy piece!`);
+      this.showMessage(`${piece.player} captured an enemy piece!`);
     }
 
     // Move
@@ -162,44 +174,148 @@ export class Board {
   /**
    * Called when a player clicks a square on the board.
    * @param {number} index
+   * @param {number} diceRoll Value of the last dice roll.
    */
-  handleSquareClick(index) {
-    if (!this.gameActive) return;
-
-    const selected = this.cells[index];
-    if (selected && selected.player === this.currentPlayer) {
-      if (!window.lastRoll) {
-        this.#showMessage('Roll the dice first!');
-        return;
-      }
-
-      const value = window.lastRoll.value;
-      if (!selected.canMoveWith(value)) {
-        this.#showMessage('You can only move unmoved pieces with Tâb (1).');
-        return;
-      }
-
-      const target = this.calculateTarget(index, value);
-      
-      if (target == null) {
-        this.#showMessage('Invalid move.');
-        return;
-      }
-
-      const destPiece = this.cells[target];
-      if (destPiece && destPiece.player === this.currentPlayer) {
-        this.#showMessage('You already have a piece there.');
-        return;
-      }
-
-      this.movePiece(index, target);
-      this.#endTurnCheckRepeat(value);
+  handleSquareClick(index, diceValue) {
+    if (!this.gameActive) {return;}
+    if (!diceRoll) {
+      this.showMessage('Roll the dice first!');
+      return;
     }
+
+    const piece = this.cells[index];
+
+    // No piece is selected
+    if(!this.selectedPiece){
+      // Clicked empty square → ignore
+      if (!piece) return;
+
+      // Clicked opponent’s piece → ignore
+      if (piece.player !== this.currentPlayer) return;
+
+      // Select piece and compute valid targets
+      this.selectedIndex = index;
+      this.possibleMoves = this.calculateTarget(index, roll.value);
+
+      // Visual feedback
+      this.highlightSelection(index, this.possibleMoves);
+      return;
+    }else { //Piece is selected
+      
+      // Clicked on selected piece again
+      if(index === this.selectedPiece){
+        this.clearSelection();
+        return;
+      }
+      
+      // Clicked valid move target
+      if (this.possibleMoves.includes(index)) {
+        if (this.validateMove(this.selectedIndex, index, diceValue)) {
+          this.movePiece(this.selectedIndex, index);
+          this.endTurnCheckRepeat(diceValue);
+        }
+        this.clearSelection();
+        return;
+      }
+    }
+  }//End of handleSquareClick
+
+  /**
+   * Highlight selected piece and valid target squares.
+   */
+  highlightSelection(from, possibleMoves) {
+    let s = (possibleMoves.length == 2) ? 
+      `#square${from} #square${possibleMoves[0]}`: 
+      `#square${from} #square${possibleMoves[0]} #square${possibleMoves[0]}`;
+
+    const elements = document.querySelectorAll(s);
+    
+    elements.forEach(element => {
+    element.classList.add(" highlight");
+    });
   }
 
-  #endTurnCheckRepeat(value) {
+  /**
+   * Clear highlights and reset selection state.
+   */
+  clearSelection() {
+    this.selectedPiece = null;
+    this.possibleMoves = [];
+
+    const elements = document.querySelectorAll(".highlight");
+    
+    elements.forEach(element => {
+      element.classList.remove("highlight");
+    });
+  }
+
+  validateMove(from, to, diceValue){
+    const piece = this.cells[from];
+    const options = this.calculateTarget(from, diceValue);
+    const dest = this.cells[to];
+
+    // Not a move
+    if(!piece || !options || !options.includes(to)) return false;
+    // Friendly piece
+    if(dest != null && dest.player === piece.player) return false;
+
+    // Unmoved piece
+    if(piece.state === 'unmoved'){
+      if(diceValue === 1 && options.includes(to)){
+        this.cells[from].markMoved();
+        return true;
+      }
+      return false;
+
+    }else if(piece.state === 'promoted'){ 
+      // Promoted piece
+      return to === options[0];
+
+    } else{
+      // Moved piece
+      const currRow = this.getRowFromIndex(from);
+      const destRow = this.getRowFromIndex(to);
+
+      // Same Row
+      if(currRow === destRow) return true;
+      
+      // Row Change
+      // Not a fork
+      if(to === options[0]) return true;
+
+      // Fork
+      // Back to starting row
+      if(destRow === 3 && piece.player === 'player-1') return false;
+      if(destRow === 0 && piece.player === 'player-2') return false;
+      
+      // Promote to enemy's starting row if our starting row is empty
+      if(this.startingRowIsEmpty(piece.player)){
+        this.cells[from].promote();
+        return true;
+      }
+
+    }
+
+    return false;
+  }
+
+  startingRowIsEmpty(player){
+    let flag = true;
+    let row = (player === 'player-1') ? 3: 0;
+
+    for (let i = 0; i < this.cols; i++) {
+      let p = this.cells[row*this.cols + i] ;
+      flag = flag && p != null && p !== player;
+    }
+    
+    // False if there is a friendly piece in player's starting row.
+    return flag;
+  }
+
+  endTurnCheckRepeat(value) {
     if ([1, 4, 6].includes(value)) {
-      this.#showMessage('Repeat roll!');
+      this.showMessage('Repeat roll!');
+      // console.log(`Board.endTurnCheckRepeat: Repeat ${this.currentPlayer} turn.`);
       document.dispatchEvent(new CustomEvent('repeatTurn'));
     } else {
       this.switchPlayer();
@@ -210,8 +326,9 @@ export class Board {
    * Switches current player.
    */
   switchPlayer() {
-    this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
-    this.#showMessage(`It's now ${this.currentPlayer}'s turn.`);
+    this.currentPlayer = (this.currentPlayer === 'player-1') ? 'player-2' : 'player-1';
+    this.showMessage(`It's now ${this.currentPlayer}'s turn.`);
+    //console.log(`Board.switchPlayer: ${this.currentPlayer}'s turn.`);
     document.dispatchEvent(new CustomEvent('turnChanged', { detail: { current: this.currentPlayer } }));
   }
 
@@ -228,7 +345,7 @@ export class Board {
     });
   }
 
-  #showMessage(msg) {
+  showMessage(msg) {
     const msgBox = document.getElementById('gameMessage');
     if (msgBox) msgBox.textContent = msg;
   }
@@ -241,4 +358,8 @@ export class Board {
 document.addEventListener('DOMContentLoaded', () => {
   // Example: create board for 9 columns
   window.board = new Board('board-container', 9);
+
+  document.addEventListener('turnChanged', () => {
+    window.board.clear
+  });
 });
