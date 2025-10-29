@@ -69,7 +69,7 @@ export class Piece {
    */
   createElement() {
     const el = document.createElement('div');
-    el.className = `piece ${this.player} ${this.state}`;
+    el.className = `board-token ${this.player} ${this.state}`;
     el.dataset.player = this.player;
     el.dataset.state = this.state;
     return el;

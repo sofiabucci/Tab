@@ -36,12 +36,12 @@ export class Board {
 
     /** @type {boolean} */
     this.gameActive = true;
-    
+
     /** @type {Map.<number, number[]>} */
-    this.boardFlow = movementMap();
+    this.boardFlow = this.movementMap();
     /** @type {number[]} */
     this.possibleMoves = [];
-    
+
 
     this.initBoardDOM();
     this.setupPieces();
@@ -124,10 +124,10 @@ export class Board {
    * @returns {number[]|null} Array of length 2. Index 0 contains the normal snake path result. Index 1 contains the forked path.
    */
   calculateTarget(fromIndex, steps) {
-    if(fromIndex == null || steps < 0 || steps > 6) return null;
+    if (fromIndex == null || steps < 0 || steps > 6) return null;
 
     let result = new Array();
-    this.calculateTargetR(fromIndex , steps, result);
+    this.calculateTargetR(fromIndex, steps, result);
     return result;
   }
 
@@ -176,8 +176,8 @@ export class Board {
    * @param {number} index
    * @param {number} diceRoll Value of the last dice roll.
    */
-  handleSquareClick(index, diceValue) {
-    if (!this.gameActive) {return;}
+  handleSquareClick(index, diceValue = 1) { //TODO dice
+    if (!this.gameActive) { return; }
     if (!diceRoll) {
       this.showMessage('Roll the dice first!');
       return;
@@ -186,7 +186,7 @@ export class Board {
     const piece = this.cells[index];
 
     // No piece is selected
-    if(!this.selectedPiece){
+    if (!this.selectedPiece) {
       // Clicked empty square → ignore
       if (!piece) return;
 
@@ -200,14 +200,14 @@ export class Board {
       // Visual feedback
       this.highlightSelection(index, this.possibleMoves);
       return;
-    }else { //Piece is selected
-      
+    } else { //Piece is selected
+
       // Clicked on selected piece again
-      if(index === this.selectedPiece){
+      if (index === this.selectedPiece) {
         this.clearSelection();
         return;
       }
-      
+
       // Clicked valid move target
       if (this.possibleMoves.includes(index)) {
         if (this.validateMove(this.selectedIndex, index, diceValue)) {
@@ -224,14 +224,14 @@ export class Board {
    * Highlight selected piece and valid target squares.
    */
   highlightSelection(from, possibleMoves) {
-    let s = (possibleMoves.length == 2) ? 
-      `#square${from} #square${possibleMoves[0]}`: 
+    let s = (possibleMoves.length == 2) ?
+      `#square${from} #square${possibleMoves[0]}` :
       `#square${from} #square${possibleMoves[0]} #square${possibleMoves[0]}`;
 
     const elements = document.querySelectorAll(s);
-    
+
     elements.forEach(element => {
-    element.classList.add(" highlight");
+      element.classList.add(" highlight");
     });
   }
 
@@ -243,53 +243,53 @@ export class Board {
     this.possibleMoves = [];
 
     const elements = document.querySelectorAll(".highlight");
-    
+
     elements.forEach(element => {
       element.classList.remove("highlight");
     });
   }
 
-  validateMove(from, to, diceValue){
+  validateMove(from, to, diceValue = 1) {
     const piece = this.cells[from];
     const options = this.calculateTarget(from, diceValue);
     const dest = this.cells[to];
 
     // Not a move
-    if(!piece || !options || !options.includes(to)) return false;
+    if (!piece || !options || !options.includes(to)) return false;
     // Friendly piece
-    if(dest != null && dest.player === piece.player) return false;
+    if (dest != null && dest.player === piece.player) return false;
 
     // Unmoved piece
-    if(piece.state === 'unmoved'){
-      if(diceValue === 1 && options.includes(to)){
+    if (piece.state === 'unmoved') {
+      if (diceValue === 1 && options.includes(to)) {
         this.cells[from].markMoved();
         return true;
       }
       return false;
 
-    }else if(piece.state === 'promoted'){ 
+    } else if (piece.state === 'promoted') {
       // Promoted piece
       return to === options[0];
 
-    } else{
+    } else {
       // Moved piece
       const currRow = this.getRowFromIndex(from);
       const destRow = this.getRowFromIndex(to);
 
       // Same Row
-      if(currRow === destRow) return true;
-      
+      if (currRow === destRow) return true;
+
       // Row Change
       // Not a fork
-      if(to === options[0]) return true;
+      if (to === options[0]) return true;
 
       // Fork
       // Back to starting row
-      if(destRow === 3 && piece.player === 'player-1') return false;
-      if(destRow === 0 && piece.player === 'player-2') return false;
-      
+      if (destRow === 3 && piece.player === 'player-1') return false;
+      if (destRow === 0 && piece.player === 'player-2') return false;
+
       // Promote to enemy's starting row if our starting row is empty
-      if(this.startingRowIsEmpty(piece.player)){
+      if (this.startingRowIsEmpty(piece.player)) {
         this.cells[from].promote();
         return true;
       }
@@ -299,15 +299,15 @@ export class Board {
     return false;
   }
 
-  startingRowIsEmpty(player){
+  startingRowIsEmpty(player) {
     let flag = true;
-    let row = (player === 'player-1') ? 3: 0;
+    let row = (player === 'player-1') ? 3 : 0;
 
     for (let i = 0; i < this.cols; i++) {
-      let p = this.cells[row*this.cols + i] ;
+      let p = this.cells[row * this.cols + i];
       flag = flag && p != null && p !== player;
     }
-    
+
     // False if there is a friendly piece in player's starting row.
     return flag;
   }
@@ -341,9 +341,12 @@ export class Board {
     squares.forEach((sq, i) => {
       sq.innerHTML = '';
       const piece = this.cells[i];
-      if (piece) sq.appendChild(piece.createElement());
+      if (piece) {
+        sq.appendChild(piece.createElement());
+      }
     });
   }
+
 
   showMessage(msg) {
     const msgBox = document.getElementById('gameMessage');
@@ -355,11 +358,22 @@ export class Board {
 // Global initialization
 // ────────────────────────────────────────────────
 
+
 document.addEventListener('DOMContentLoaded', () => {
   // Example: create board for 9 columns
-  window.board = new Board('board-container', 9);
+  //window.board = new Board('board-container', 9);
 
   document.addEventListener('turnChanged', () => {
-    window.board.clear
+    window.board.clearSelection();
   });
 });
+
+// Inicialização e configuração dos botões
+function generateBoard(columns = 9, options = {}) {
+  window.game = new Board('board-container', columns);
+  setupActionButtons();
+  return window.game;
+}
+
+// Expor funções globais
+window.generateBoard = generateBoard;
