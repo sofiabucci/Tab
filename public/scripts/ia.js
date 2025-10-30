@@ -93,7 +93,7 @@ window.IA = {
                 const piece = state.board[r][c];
                 if (!piece || piece.player !== player) continue;
                 
-                // Check first move rule
+                // Check first move rule - MESMA REGRA DO PLAYER HUMANO
                 if (!piece.hasConverted && diceValue !== 1) continue;
                 
                 const target = this.calculateTargetPosition(state, r, c, diceValue);
@@ -120,28 +120,32 @@ window.IA = {
      * @returns {Object|null} - Target position or null if invalid
      */
     calculateTargetPosition(state, fromRow, fromCol, steps) {
-        let row = fromRow;
-        let col = fromCol;
-        let remaining = steps;
+        let currentRow = fromRow;
+        let currentCol = fromCol;
+        let remainingSteps = steps;
 
-        while (remaining > 0) {
-            const direction = (row === 0 || row === 2) ? -1 : 1;
-            col += direction;
+        while (remainingSteps > 0) {
+            const direction = (currentRow === 0 || currentRow === 2) ? -1 : 1;
+            let nextCol = currentCol + direction;
+            let nextRow = currentRow;
 
-            if (col < 0) {
-                if (row === 0) { row = 1; col = 0; }
-                else if (row === 2) { row = 3; col = state.cols - 1; }
-                else return null;
-            } else if (col >= state.cols) {
-                if (row === 1) { row = 0; col = state.cols - 1; }
-                else if (row === 3) { row = 2; col = 0; }
-                else return null;
+            // Usar a mesma lógica do calculateMove do board.js
+            if (nextCol < 0 || nextCol >= state.cols) {
+                const pairedRow = (currentRow === 0) ? 1 : (currentRow === 1) ? 2 : (currentRow === 2) ? 1 : 2;
+                nextRow = pairedRow;
+                nextCol = direction > 0 ? state.cols - 1 : 0;
             }
 
-            remaining--;
+            if (nextRow < 0 || nextRow >= 4 || nextCol < 0 || nextCol >= state.cols) {
+                return null;
+            }
+
+            currentRow = nextRow;
+            currentCol = nextCol;
+            remainingSteps--;
         }
 
-        return { r: row, c: col };
+        return { r: currentRow, c: currentCol };
     },
 
     /**
@@ -159,12 +163,8 @@ window.IA = {
             return false;
         }
 
-        // Check Tâb specific rules
-        const opponentHomeRow = piece.player === this.WHITE ? 3 : 0;
-        const ownHomeRow = piece.player === this.WHITE ? 0 : 3;
-        
-        // Cannot return to home row after leaving
-        if (target.r === ownHomeRow && piece.history.length > 1) {
+        // Verificar regra do primeiro movimento (apenas com Tâb)
+        if (!piece.hasConverted && window.lastRoll && window.lastRoll.value !== 1) {
             return false;
         }
 

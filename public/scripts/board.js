@@ -230,8 +230,23 @@ class GameBoard {
      * Ends the current turn and switches players
      */
     endTurn() {
-        // Se foi um lançamento que não permite repetição, muda o turno
-        if (!window.lastRoll || !window.lastRoll.repeats) {
+        // Se foi um lançamento que permite repetição, mantém o turno
+        if (window.lastRoll && window.lastRoll.repeats) {
+            // Permite rolar novamente no mesmo turno
+            this.diceRolled = false;
+            window.canRollAgain = true;
+            
+            if (window.enableStickRolling) {
+                window.enableStickRolling();
+            }
+            
+            this.render();
+            
+            // Se for IA, faz reroll automático após delay
+            if (this.isAITurn()) {
+                setTimeout(() => this.triggerAIRoll(), 1000);
+            }
+        } else {
             // Reset dice state
             this.diceRolled = false;
             window.lastRoll = null;
@@ -258,16 +273,6 @@ class GameBoard {
             if (this.isAITurn()) {
                 setTimeout(() => this.triggerAIRoll(), 800);
             }
-        } else {
-            // Permite rolar novamente no mesmo turno
-            this.diceRolled = false;
-            window.canRollAgain = true;
-            
-            if (window.enableStickRolling) {
-                window.enableStickRolling();
-            }
-            
-            this.render();
         }
     }
 
@@ -492,6 +497,7 @@ class GameBoard {
         this.render();
         
         if (this.isAITurn()) {
+            // Se for IA, faz movimento após delay
             setTimeout(() => this.makeAIMove(), 500);
         }
     }
