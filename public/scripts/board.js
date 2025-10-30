@@ -201,7 +201,7 @@ class GameBoard {
         this.movePiece(i, target);
     }
 
-    /**
+        /**
      * Moves a piece from one position to another
      * @param {number} from - Source position index
      * @param {number} to - Target position index
@@ -214,13 +214,20 @@ class GameBoard {
             this.showMessage('Piece captured!');
         }
 
-        // Mark conversion on first move
+        // Mark conversion on first move with Tâb (1)
         if (!piece.hasConverted && window.lastRoll.value === 1) {
             piece.hasConverted = true;
+            this.showMessage('Piece activated with Tâb!');
         }
 
         this.content[to] = piece;
         this.content[from] = null;
+
+        // Render antes de verificar fim de jogo
+        this.render();
+        
+        // Verificar fim de jogo APÓS o movimento
+        this.checkGameEnd();
 
         // End turn (only one move per turn even with repeat)
         this.endTurn();
@@ -412,14 +419,27 @@ class GameBoard {
     checkGameEnd() {
         if (!this.gameActive) return;
         
+        // Contar TODAS as peças (convertidas e não convertidas)
         const p1Pieces = this.content.filter(p => p && p.player === 'player-1').length;
         const p2Pieces = this.content.filter(p => p && p.player === 'player-2').length;
         
-        if (p1Pieces === 0 || p2Pieces === 0) {
-            const winner = p1Pieces === 0 ? 'Player 2' : 'Player 1';
+        console.log('Player 1 pieces (total):', p1Pieces);
+        console.log('Player 2 pieces (total):', p2Pieces);
+        
+        // Verificar se algum player não tem mais peças no tabuleiro
+        if (p1Pieces === 0) {
+            const winner = 'Player 2';
             this.gameActive = false;
             this.showVictoryModal(winner, false);
+            return true;
+        } else if (p2Pieces === 0) {
+            const winner = 'Player 1';
+            this.gameActive = false;
+            this.showVictoryModal(winner, false);
+            return true;
         }
+        
+        return false;
     }
 
     /**
