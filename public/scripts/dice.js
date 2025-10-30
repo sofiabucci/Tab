@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', function() {
     /** @type {Object|null} */
     window.stickDiceLastRoll = null;
 
+    // Variáveis globais para controle de turno
+    window.isPlayerTurn = false;
+    window.lastRoll = null;
+    window.canRollAgain = false;
+
     /**
      * Initialize dice display
      */
@@ -110,10 +115,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
+     * Update roll button state based on game rules
+     */
+    function updateRollButtonState() {
+        const rollDiceBtn = document.getElementById('rollDiceBtn');
+        if (rollDiceBtn) {
+            const canRoll = window.isPlayerTurn || window.canRollAgain;
+            rollDiceBtn.disabled = !canRoll;
+            
+            if (canRoll) {
+                rollDiceBtn.classList.remove('disabled');
+            } else {
+                rollDiceBtn.classList.add('disabled');
+            }
+        }
+    }
+
+    /**
+     * Enable dice rolling for current player
+     */
+    function enableStickRolling() {
+        window.isPlayerTurn = true;
+        window.canRollAgain = false;
+        window.lastRoll = null;
+        updateRollButtonState();
+    }
+
+    /**
      * Perform a single dice roll
      */
     function rollOnce() {
         if (isRolling) return;
+        
+        // Verifica se é a vez do jogador e se pode rolar
+        if (!window.isPlayerTurn && !window.canRollAgain) {
+            return;
+        }
+        
         isRolling = true;
 
         showRollingAnimation();
@@ -125,6 +163,13 @@ document.addEventListener('DOMContentLoaded', function() {
             displayRollResult(rollResult);
             broadcastRollEvent(rollResult);
             isRolling = false;
+            
+            // Determina se pode rolar novamente baseado no resultado
+            window.canRollAgain = rollResult.repeats;
+            window.isPlayerTurn = false;
+            
+            updateRollButtonState();
+            
         }, animationTime);
     }
 
@@ -192,6 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function broadcastRollEvent(result) {
         window.stickDiceLastRoll = result;
+        window.lastRoll = result;
         document.dispatchEvent(new CustomEvent('stickRoll', { 
             detail: window.stickDiceLastRoll 
         }));
@@ -202,13 +248,18 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function resetSticks() {
         window.stickDiceLastRoll = null;
+        window.lastRoll = null;
+        window.canRollAgain = false;
         renderInitial();
         document.dispatchEvent(new CustomEvent('stickReset'));
+        updateRollButtonState();
     }
 
     // Expose functions globally
     window.rollStickDice = rollOnce;
     window.resetStickDice = resetSticks;
+    window.enableStickRolling = enableStickRolling;
+    window.updateRollButtonState = updateRollButtonState;
 
     // Event listeners
     if (rollDiceBtn) {
@@ -219,4 +270,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize display
     renderInitial();
+    updateRollButtonState();
 });

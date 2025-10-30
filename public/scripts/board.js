@@ -230,30 +230,44 @@ class GameBoard {
      * Ends the current turn and switches players
      */
     endTurn() {
-        // Reset dice state
-        this.diceRolled = false;
-        window.lastRoll = null;
-        
-        // Switch players
-        this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
-        
-        // Reset and enable dice for next player
-        if (window.resetStickDice) {
-            window.resetStickDice();
-        }
-        if (window.enableStickRolling) {
-            window.enableStickRolling();
-        }
-        
-        // Dispatch turn change event
-        document.dispatchEvent(new CustomEvent('turnChanged'));
-        
-        this.render();
-        this.checkGameEnd();
-        
-        // If it's AI's turn, trigger automatic roll
-        if (this.isAITurn()) {
-            setTimeout(() => this.triggerAIRoll(), 800);
+        // Se foi um lançamento que não permite repetição, muda o turno
+        if (!window.lastRoll || !window.lastRoll.repeats) {
+            // Reset dice state
+            this.diceRolled = false;
+            window.lastRoll = null;
+            window.canRollAgain = false;
+            
+            // Switch players
+            this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
+            
+            // Reset and enable dice for next player
+            if (window.resetStickDice) {
+                window.resetStickDice();
+            }
+            if (window.enableStickRolling) {
+                window.enableStickRolling();
+            }
+            
+            // Dispatch turn change event
+            document.dispatchEvent(new CustomEvent('turnChanged'));
+            
+            this.render();
+            this.checkGameEnd();
+            
+            // If it's AI's turn, trigger automatic roll
+            if (this.isAITurn()) {
+                setTimeout(() => this.triggerAIRoll(), 800);
+            }
+        } else {
+            // Permite rolar novamente no mesmo turno
+            this.diceRolled = false;
+            window.canRollAgain = true;
+            
+            if (window.enableStickRolling) {
+                window.enableStickRolling();
+            }
+            
+            this.render();
         }
     }
 
@@ -466,11 +480,11 @@ class GameBoard {
         this.diceRolled = true;
         
         const names = {1:'Tâb', 2:'Itneyn', 3:'Teláteh', 4:'Arba\'ah', 6:'Sitteh'};
-        const msg = `Roll: ${roll.value} (${names[roll.value]}) - Make your move!`;
+        const repeatMsg = roll.repeats ? ' - Roll again!' : ' - Make your move!';
+        const msg = `Roll: ${roll.value} (${names[roll.value]})${repeatMsg}`;
         this.showMessage(msg);
         
-        // Disable additional rolling
-        window.isPlayerTurn = false;
+        // Atualiza estado do botão de rolar
         if (window.updateRollButtonState) {
             window.updateRollButtonState();
         }
