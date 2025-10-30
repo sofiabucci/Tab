@@ -1,4 +1,11 @@
-/* Board container - FLEXÍVEL AO TAMANHO DO BOARD */
+/**
+ * @file board.css
+ * @description Board-specific styles for Tâb game
+ * Focused on board layout, tokens, and game visual elements
+ * Responsive grid system with dynamic sizing
+ */
+
+/* ===== BOARD CONTAINER ===== */
 #board-container {
     padding: 40px;
     background: var(--light-wood);
@@ -11,15 +18,17 @@
     min-height: fit-content;
     height: fit-content;
     width: fit-content;
-    margin: auto;
 }
 
+/* ===== BOARD GRID SYSTEM ===== */
 .board {
     display: grid;
     justify-content: center;
     align-items: center;
     width: fit-content;
     height: fit-content;
+    /* Dynamic gap based on column count */
+    gap: calc(60px / var(--cols, 9));
 }
 
 .board-square {
@@ -32,6 +41,7 @@
     box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.3);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     
+    /* Dynamic sizing based on column count */
     width: calc(700px / var(--cols, 9));
     height: calc(700px / var(--cols, 9));
     min-width: 45px;
@@ -43,6 +53,7 @@
     box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* ===== GAME TOKENS ===== */
 .board-token {
     border-radius: 50%;
     display: flex;
@@ -51,37 +62,32 @@
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     
+    /* Dynamic sizing to fit squares */
     width: calc(630px / var(--cols, 9));
     height: calc(630px / var(--cols, 9));
     min-width: 38px;
     min-height: 38px;
 }
 
-/* Player tokens */
-.player-2 {
-    background: maroon;
-    color: white;
-    border: 3px solid black;
-}
-
-.player-1 {
+/* Player-specific token styles */
+.board-token.player-1 {
     background: white;
     color: black;
     border: 3px solid black;
 }
 
-/* Hover effect on tokens */
+.board-token.player-2 {
+    background: maroon;
+    color: white;
+    border: 3px solid black;
+}
+
 .board-token:hover {
     transform: scale(1.2);
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.6);
 }
 
-/* Gap dinâmico baseado no número de colunas */
-.board {
-    gap: calc(60px / var(--cols, 9));
-}
-
-/* Estados do jogo */
+/* ===== GAME STATE INDICATORS ===== */
 .token-selected {
     border: 4px solid gold;
     box-shadow: 0 0 20px gold;
@@ -96,3 +102,8 @@
     animation: pulse 1s infinite;
 }
 
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}

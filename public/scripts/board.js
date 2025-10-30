@@ -1,37 +1,72 @@
-// Game board class simplificada
+/**
+ * @file board.js
+ * @description
+ * Implements the DOM-based game board for Tâb game.
+ * Manages game state, piece movement, turn validation, AI integration,
+ * and rendering of a 4×N grid with complete game logic.
+ * 
+ * This class handles the complete game flow including dice rolling,
+ * player turns, piece movement, captures, and game end conditions.
+ */
+
+/**
+ * GameBoard class for Tâb game
+ * @class
+ */
 class GameBoard {
-    constructor(id, cols) {
+    /**
+     * Creates a new GameBoard instance
+     * @param {string} id - The ID of the board container element
+     * @param {number} cols - Number of columns for the board
+     * @param {Object} options - Game configuration options
+     * @param {string} options.mode - Game mode ('pvp', 'pvc', 'pvpo')
+     * @param {string} options.difficulty - AI difficulty ('easy', 'medium', 'hard')
+     * @param {string} options.firstPlayer - Starting player ('player-1' or 'player-2')
+     */
+    constructor(id, cols, options = {}) {
+        /** @type {number} */
         this.cols = parseInt(cols) || 9;
+        
+        /** @type {Array} */
         this.content = Array(this.cols * 4).fill(null);
         
-        // Opções do setup
+        /** @type {Object} */
         this.options = {
-            mode: (arguments[2]?.mode) || 'pvp',
-            difficulty: (arguments[2]?.difficulty) || 'medium',
-            firstPlayer: (arguments[2]?.firstPlayer) || 'player-1'
+            mode: options.mode || 'pvp',
+            difficulty: options.difficulty || 'medium',
+            firstPlayer: options.firstPlayer || 'player-1'
         };
 
+        /** @type {string} */
         this.currentPlayer = this.options.firstPlayer;
-        this.gameActive = true;
-        this.diceRolled = false; // Controla se o dado já foi rolado no turno atual
         
+        /** @type {boolean} */
+        this.gameActive = true;
+        
+        /** @type {boolean} */
+        this.diceRolled = false;
+
         this.initBoard(id);
         this.setupPieces();
         this.render();
         
-        // Inicializar controle de turno nos dados
+        // Initialize dice rolling control
         if (window.enableStickRolling) {
             const isHumanTurn = !this.isAITurn();
             window.isPlayerTurn = isHumanTurn;
             window.enableStickRolling();
         }
         
-        // IA começa automaticamente se for primeiro
+        // AI starts automatically if first player
         if (this.isAITurn()) {
             setTimeout(() => this.triggerAIRoll(), 1000);
         }
     }
 
+    /**
+     * Initializes the board DOM structure
+     * @param {string} id - The container element ID
+     */
     initBoard(id) {
         const parent = document.getElementById(id);
         parent.innerHTML = '<div class="board"></div>';
@@ -46,6 +81,9 @@ class GameBoard {
         }
     }
 
+    /**
+     * Sets up the initial piece positions
+     */
     setupPieces() {
         // Player 2 (top row - linha 0) - PRIMEIRA PEÇA NO SENTIDO DA LINHA (←)
         for (let c = 0; c < this.cols; c++) {
@@ -63,10 +101,21 @@ class GameBoard {
         }
     }
 
+    /**
+     * Gets movement direction for a given row
+     * @param {number} row - The row index (0-3)
+     * @returns {number} - Movement direction (-1 for left, 1 for right)
+     */
     getMovementDirection(row) {
         return (row === 0 || row === 2) ? -1 : 1;   
     }
 
+    /**
+     * Calculates the target position for a move
+     * @param {number} fromIndex - Starting position index
+     * @param {number} steps - Number of steps to move
+     * @returns {number|null} - Target position index or null if invalid
+     */
     calculateMove(fromIndex, steps) {
         if (fromIndex === null || fromIndex === undefined) return null;
         
@@ -103,19 +152,23 @@ class GameBoard {
         return currentRow * this.cols + currentCol;
     }
 
+    /**
+     * Handles click events on board squares
+     * @param {number} i - Clicked square index
+     */
     handleClick(i) {
         if (!this.gameActive) {
             this.showMessage('Game over!');
             return;
         }
         
-        // Verificar se o dado foi rolado
+        // Check if dice has been rolled
         if (!this.diceRolled || !window.lastRoll) {
             this.showMessage('Roll dice first!');
             return;
         }
         
-        // Verificar se é vez do jogador humano
+        // Check if it's human player's turn
         if (this.isAITurn()) {
             this.showMessage("Wait for AI's move");
             return;
@@ -127,7 +180,7 @@ class GameBoard {
             return;
         }
 
-        // Verificar primeiro movimento (só com Tâb)
+        // Check first move rule (only with Tâb)
         if (!piece.hasConverted && window.lastRoll.value !== 1) {
             this.showMessage('First move must be with Tâb (1)');
             return;
@@ -139,7 +192,7 @@ class GameBoard {
             return;
         }
 
-        // Verificar se destino tem peça do mesmo jogador
+        // Check if destination has same player's piece
         if (this.content[target] && this.content[target].player === piece.player) {
             this.showMessage('Blocked - your piece in destination');
             return;
@@ -148,15 +201,20 @@ class GameBoard {
         this.movePiece(i, target);
     }
 
+    /**
+     * Moves a piece from one position to another
+     * @param {number} from - Source position index
+     * @param {number} to - Target position index
+     */
     movePiece(from, to) {
         const piece = this.content[from];
         
-        // Captura
+        // Capture logic
         if (this.content[to] && this.content[to].player !== piece.player) {
             this.showMessage('Piece captured!');
         }
 
-        // Marcar conversão no primeiro movimento
+        // Mark conversion on first move
         if (!piece.hasConverted && window.lastRoll.value === 1) {
             piece.hasConverted = true;
         }
@@ -164,19 +222,22 @@ class GameBoard {
         this.content[to] = piece;
         this.content[from] = null;
 
-        // Finalizar turno (mesmo em caso de repeat, só uma jogada por turno)
+        // End turn (only one move per turn even with repeat)
         this.endTurn();
     }
 
+    /**
+     * Ends the current turn and switches players
+     */
     endTurn() {
-        // Resetar estado do dado
+        // Reset dice state
         this.diceRolled = false;
         window.lastRoll = null;
         
-        // Mudar jogador
+        // Switch players
         this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
         
-        // Resetar e habilitar dados para o próximo jogador
+        // Reset and enable dice for next player
         if (window.resetStickDice) {
             window.resetStickDice();
         }
@@ -184,18 +245,21 @@ class GameBoard {
             window.enableStickRolling();
         }
         
-        // Disparar evento de mudança de turno
+        // Dispatch turn change event
         document.dispatchEvent(new CustomEvent('turnChanged'));
         
         this.render();
         this.checkGameEnd();
         
-        // Se for vez da IA, ela rola automaticamente
+        // If it's AI's turn, trigger automatic roll
         if (this.isAITurn()) {
             setTimeout(() => this.triggerAIRoll(), 800);
         }
     }
 
+    /**
+     * Triggers AI dice roll
+     */
     triggerAIRoll() {
         if (window.rollStickDice && !this.diceRolled) {
             this.diceRolled = true;
@@ -203,6 +267,9 @@ class GameBoard {
         }
     }
 
+    /**
+     * Makes AI move based on current game state
+     */
     async makeAIMove() {
         if (!window.IA || !this.gameActive || !window.lastRoll) return;
         
@@ -214,7 +281,7 @@ class GameBoard {
                 const indices = window.IA.moveToIndices(move, this.cols);
                 this.movePiece(indices.from, indices.to);
             } else {
-                // IA não pode mover - passar turno
+                // AI cannot move - pass turn
                 this.showMessage('AI cannot move - passing turn');
                 this.endTurn();
             }
@@ -224,6 +291,9 @@ class GameBoard {
         }
     }
 
+    /**
+     * Passes the current turn if no valid moves available
+     */
     passTurn() {
         if (!this.gameActive) return;
         
@@ -232,7 +302,7 @@ class GameBoard {
             return;
         }
 
-        // Verificar se existem movimentos possíveis
+        // Check if valid moves exist
         const hasValidMoves = this.checkValidMoves();
         if (hasValidMoves) {
             this.showMessage('You have valid moves - cannot pass!');
@@ -243,6 +313,10 @@ class GameBoard {
         this.endTurn();
     }
 
+    /**
+     * Checks if current player has any valid moves
+     * @returns {boolean} - True if valid moves exist
+     */
     checkValidMoves() {
         if (!window.lastRoll) return false;
         
@@ -250,13 +324,13 @@ class GameBoard {
             const piece = this.content[i];
             if (!piece || piece.player !== this.currentPlayer) continue;
             
-            // Verificar primeiro movimento (só com Tâb)
+            // Check first move rule (only with Tâb)
             if (!piece.hasConverted && window.lastRoll.value !== 1) continue;
             
             const target = this.calculateMove(i, window.lastRoll.value);
             if (!target) continue;
 
-            // Verificar se destino não tem peça do mesmo jogador
+            // Check if destination doesn't have same player's piece
             if (!this.content[target] || this.content[target].player !== piece.player) {
                 return true;
             }
@@ -265,6 +339,9 @@ class GameBoard {
         return false;
     }
 
+    /**
+     * Resigns the current game
+     */
     resign() {
         if (!this.gameActive) return;
         
@@ -273,6 +350,11 @@ class GameBoard {
         this.showVictoryModal(winner, true);
     }
 
+    /**
+     * Shows victory modal with winner information
+     * @param {string} winner - The winning player
+     * @param {boolean} isResign - Whether game ended by resignation
+     */
     showVictoryModal(winner, isResign = false) {
         const modal = document.getElementById('victoryModal');
         const message = document.getElementById('victoryMessage');
@@ -283,7 +365,7 @@ class GameBoard {
             reason.textContent = isResign ? 'Player resigned' : 'All pieces captured';
             modal.classList.remove('hidden');
             
-            // Configurar botões
+            // Configure buttons
             document.getElementById('newGameFromVictory').onclick = () => {
                 modal.classList.add('hidden');
                 this.showSetupModal();
@@ -295,6 +377,9 @@ class GameBoard {
         }
     }
 
+    /**
+     * Shows the game setup modal
+     */
     showSetupModal() {
         const setupModal = document.getElementById('setupModal');
         if (setupModal) {
@@ -302,6 +387,9 @@ class GameBoard {
         }
     }
 
+    /**
+     * Checks if game has ended and shows victory modal
+     */
     checkGameEnd() {
         if (!this.gameActive) return;
         
@@ -315,6 +403,9 @@ class GameBoard {
         }
     }
 
+    /**
+     * Renders the current game state to the DOM
+     */
     render() {
         document.querySelectorAll('.board-square').forEach((cell, i) => {
             cell.innerHTML = '';
@@ -332,7 +423,7 @@ class GameBoard {
             }
         });
         
-        // Atualizar mensagem de turno
+        // Update turn message
         let turnMsg;
         if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
             turnMsg = "AI's turn - Rolling...";
@@ -343,22 +434,33 @@ class GameBoard {
         }
         this.showMessage(turnMsg);
         
-        // Atualizar estado do botão de rolar dados
+        // Update dice roll button state
         if (window.updateRollButtonState) {
             window.updateRollButtonState();
         }
     }
 
+    /**
+     * Shows message in the game message box
+     * @param {string} text - Message to display
+     */
     showMessage(text) {
         const msgEl = document.getElementById('gameMessage');
         if (msgEl) msgEl.textContent = text;
     }
 
+    /**
+     * Checks if it's currently AI's turn
+     * @returns {boolean} - True if AI's turn
+     */
     isAITurn() {
         return this.options.mode === 'pvc' && this.currentPlayer === 'player-2';
     }
 
-    // Compatibilidade com sistema de dados
+    /**
+     * Handles stick dice roll events
+     * @param {Object} roll - Roll result object
+     */
     handleStickRoll(roll) {
         window.lastRoll = roll;
         this.diceRolled = true;
@@ -367,7 +469,7 @@ class GameBoard {
         const msg = `Roll: ${roll.value} (${names[roll.value]}) - Make your move!`;
         this.showMessage(msg);
         
-        // Desabilitar rolagem adicional
+        // Disable additional rolling
         window.isPlayerTurn = false;
         if (window.updateRollButtonState) {
             window.updateRollButtonState();
@@ -381,13 +483,21 @@ class GameBoard {
     }
 }
 
-// Inicialização e configuração dos botões
+/**
+ * Generates a new game board with specified parameters
+ * @param {number} columns - Number of columns for the board
+ * @param {Object} options - Game configuration options
+ * @returns {GameBoard} - The created GameBoard instance
+ */
 function generateBoard(columns = 9, options = {}) {
     window.game = new GameBoard('board-container', columns, options);
     setupActionButtons();
     return window.game;
 }
 
+/**
+ * Sets up action buttons (pass, resign)
+ */
 function setupActionButtons() {
     const passBtn = document.getElementById('passBtn');
     const resignBtn = document.getElementById('resignBtn');
@@ -409,23 +519,22 @@ function setupActionButtons() {
     }
 }
 
-// Configurar quando a página carregar
+// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     setupActionButtons();
 });
 
-// Expor funções globais
+// Expose functions globally
 window.generateBoard = generateBoard;
 window.GameBoard = GameBoard;
 
-// Listener para eventos de dados
+// Event listeners for dice and turn events
 document.addEventListener('stickRoll', (e) => {
     if (window.game) {
         window.game.handleStickRoll(e.detail);
     }
 });
 
-// Listener para eventos de mudança de turno
 document.addEventListener('turnChanged', () => {
     if (window.game && window.updateRollButtonState) {
         window.updateRollButtonState();

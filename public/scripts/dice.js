@@ -1,37 +1,60 @@
+/**
+ * @file dice.js
+ * @description Stick dice implementation for Tâb game
+ * Handles dice rolling, visualization, and result calculation
+ */
+
 document.addEventListener('DOMContentLoaded', function() {
+    /** @type {HTMLButtonElement} */
     const rollDiceBtn = document.getElementById('rollDiceBtn');
+    
+    /** @type {HTMLElement} */
     const diceResult = document.getElementById('diceResult');
 
-    // Representation characters for faces: light (planar/clear) and dark (rounded/shell)
-    const FACE_LIGHT = '◻';
-    const FACE_DARK = '◼';
-
-    // Mapping from number of light faces (sum 0..4) to game value
-    const SUM_TO_VALUE = {
-        0: 6, // Sitteh
-        1: 1, // Tâb
-        2: 2, // Itneyn
-        3: 3, // Teláteh
-        4: 4  // Arba'ah
+    /**
+     * Dice configuration constants
+     * @type {Object}
+     */
+    const DICE_CONFIG = {
+        FACES: {
+            LIGHT: 'light',
+            DARK: 'dark'
+        },
+        VALUES: {
+            0: 6, // Sitteh
+            1: 1, // Tâb
+            2: 2, // Itneyn
+            3: 3, // Teláteh
+            4: 4  // Arba'ah
+        },
+        NAMES: {
+            6: 'Sitteh',
+            1: "Tâb",
+            2: 'Itneyn',
+            3: 'Teláteh',
+            4: "Arba'ah"
+        },
+        REPEAT_VALUES: [1, 4, 6]
     };
 
-    // Names for values
-    const VALUE_NAMES = {
-        6: 'Sitteh',
-        1: "Tâb",
-        2: 'Itneyn',
-        3: 'Teláteh',
-        4: "Arba'ah"
-    };
-
+    /** @type {boolean} */
     let isRolling = false;
-    // Last roll info exposed on window for other modules
+    
+    /** @type {Object|null} */
     window.stickDiceLastRoll = null;
 
+    /**
+     * Initialize dice display
+     */
     function renderInitial() {
         if (diceResult) diceResult.innerHTML = '';
     }
 
+    /**
+     * Create visual representation of stick dice
+     * @param {string[]} faces - Array of face values ('light' or 'dark')
+     * @returns {HTMLElement} - Stick container element
+     */
     function createStickVisual(faces) {
         const stickContainer = document.createElement('div');
         stickContainer.className = 'sticks-container';
@@ -40,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const stick = document.createElement('div');
             stick.className = 'stick';
 
-            // Criar 4 segmentos verticais para cada pau
+            // Create 4 vertical segments for each stick
             for (let i = 0; i < 4; i++) {
                 const segment = document.createElement('div');
                 segment.className = `stick-segment ${face === 'light' ? 'stick-light' : 'stick-dark'}`;
@@ -53,117 +76,146 @@ document.addEventListener('DOMContentLoaded', function() {
         return stickContainer;
     }
 
+    /**
+     * Format dice roll result for display
+     * @param {string[]} faces - Array of face values
+     * @param {number} lightCount - Number of light faces
+     * @param {number} value - Dice value
+     * @param {string} name - Dice value name
+     * @param {boolean} repeats - Whether roll repeats
+     * @returns {HTMLElement} - Formatted result element
+     */
     function formatResult(faces, lightCount, value, name, repeats) {
         const container = document.createElement('div');
         container.className = 'dice-result-container';
 
-        // Adicionar visualização dos paus
+        // Add stick visualization
         const sticksVisual = createStickVisual(faces);
         container.appendChild(sticksVisual);
 
-        // Adicionar informações do resultado
+        // Add result information
         const infoDiv = document.createElement('div');
         infoDiv.className = 'dice-result-info';
 
-        const lightCountDiv = document.createElement('div');
-        lightCountDiv.className = 'dice-light-count';
-        lightCountDiv.innerHTML = `<strong>Light sides:</strong> ${lightCount}`;
+        infoDiv.innerHTML = `
+            <div class="dice-light-count"><strong>Light sides:</strong> ${lightCount}</div>
+            <div class="dice-value"><strong>Value:</strong> ${value} — ${name}</div>
+            <div class="dice-repeats ${repeats ? 'dice-repeat-yes' : 'dice-repeat-no'}">
+                ${repeats ? ' <strong>Roll again!</strong>' : '⏭️ Next player'}
+            </div>
+        `;
 
-        const valueDiv = document.createElement('div');
-        valueDiv.className = 'dice-value';
-        valueDiv.innerHTML = `<strong>Value:</strong> ${value} — ${name}`;
-
-        const repeatsDiv = document.createElement('div');
-        repeatsDiv.className = `dice-repeats ${repeats ? 'dice-repeat-yes' : 'dice-repeat-no'}`;
-        repeatsDiv.innerHTML = repeats ? ' <strong>Roll again!</strong>' : '⏭️ Next player';
-
-        infoDiv.appendChild(lightCountDiv);
-        infoDiv.appendChild(valueDiv);
-        infoDiv.appendChild(repeatsDiv);
         container.appendChild(infoDiv);
-
         return container;
     }
 
+    /**
+     * Perform a single dice roll
+     */
     function rollOnce() {
         if (isRolling) return;
         isRolling = true;
 
-        if (diceResult) {
-            diceResult.innerHTML = `
-                <div class="dice-rolling">
-                    <div class="dice-rolling-text"> Rolling...</div>
-                    <div class="dice-rolling-animation">
-                        ${Array(4).fill(0).map(() => `
-                            <div class="dice-rolling-stick">
-                                ${Array(4).fill(0).map(() => `
-                                    <div class="dice-rolling-segment"></div>
-                                `).join('')}
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
+        showRollingAnimation();
 
         const animationTime = 1000;
 
         setTimeout(() => {
-            // Simulate 4 independent sticks
-            const faces = [];
-            for (let i = 0; i < 4; i++) {
-                // Each stick has two faces; assume 50/50
-                faces.push(Math.random() < 0.5 ? 'light' : 'dark');
-            }
-
-            const lightCount = faces.filter(f => f === 'light').length;
-            const value = SUM_TO_VALUE[lightCount];
-            const name = VALUE_NAMES[value] || '';
-            const repeats = (value === 1 || value === 4 || value === 6);
-
-            // Create visual result
-            const resultElement = formatResult(faces, lightCount, value, name, repeats);
-
-            if (diceResult) {
-                diceResult.innerHTML = '';
-                diceResult.appendChild(resultElement);
-            }
-
-            // Store last roll globally
-            window.stickDiceLastRoll = {
-                faces,
-                sum: lightCount,
-                value,
-                name,
-                repeats
-            };
-
-            // Dispatch a custom event so other modules (board/IA) can react
-            const event = new CustomEvent('stickRoll', { detail: window.stickDiceLastRoll });
-            document.dispatchEvent(event);
-
+            const rollResult = calculateRollResult();
+            displayRollResult(rollResult);
+            broadcastRollEvent(rollResult);
             isRolling = false;
         }, animationTime);
     }
 
+    /**
+     * Show rolling animation
+     */
+    function showRollingAnimation() {
+        if (!diceResult) return;
+
+        diceResult.innerHTML = `
+            <div class="dice-rolling">
+                <div class="dice-rolling-text">Rolling...</div>
+                <div class="dice-rolling-animation">
+                    ${Array(4).fill(0).map(() => `
+                        <div class="dice-rolling-stick">
+                            ${Array(4).fill(0).map(() => `
+                                <div class="dice-rolling-segment"></div>
+                            `).join('')}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Calculate random dice roll result
+     * @returns {Object} - Roll result object
+     */
+    function calculateRollResult() {
+        const faces = Array(4).fill(0).map(() => 
+            Math.random() < 0.5 ? 'light' : 'dark'
+        );
+
+        const lightCount = faces.filter(f => f === 'light').length;
+        const value = DICE_CONFIG.VALUES[lightCount];
+        const name = DICE_CONFIG.NAMES[value] || '';
+        const repeats = DICE_CONFIG.REPEAT_VALUES.includes(value);
+
+        return { faces, lightCount, value, name, repeats };
+    }
+
+    /**
+     * Display roll result in UI
+     * @param {Object} result - Roll result object
+     */
+    function displayRollResult(result) {
+        if (!diceResult) return;
+
+        const resultElement = formatResult(
+            result.faces, 
+            result.lightCount, 
+            result.value, 
+            result.name, 
+            result.repeats
+        );
+
+        diceResult.innerHTML = '';
+        diceResult.appendChild(resultElement);
+    }
+
+    /**
+     * Broadcast roll event to other game components
+     * @param {Object} result - Roll result object
+     */
+    function broadcastRollEvent(result) {
+        window.stickDiceLastRoll = result;
+        document.dispatchEvent(new CustomEvent('stickRoll', { 
+            detail: window.stickDiceLastRoll 
+        }));
+    }
+
+    /**
+     * Reset dice to initial state
+     */
     function resetSticks() {
         window.stickDiceLastRoll = null;
         renderInitial();
-        // Dispatch reset event
         document.dispatchEvent(new CustomEvent('stickReset'));
     }
 
-    // Expose functions for other code
+    // Expose functions globally
     window.rollStickDice = rollOnce;
     window.resetStickDice = resetSticks;
 
-    // When a move ends, reset the stick-dice UI to initial state
-    document.addEventListener('moveEnded', () => resetSticks());
-
-    // Hook the UI button/area
+    // Event listeners
     if (rollDiceBtn) {
-        rollDiceBtn.addEventListener('click', () => rollOnce());
+        rollDiceBtn.addEventListener('click', rollOnce);
     }
+
+    document.addEventListener('moveEnded', resetSticks);
 
     // Initialize display
     renderInitial();
