@@ -391,6 +391,34 @@ class GameBoard {
             reason.textContent = isResign ? 'Player resigned' : 'All pieces captured';
             modal.classList.remove('hidden');
             
+            // REGISTRAR NA CLASSIFICAÇÃO - ADICIONE ESTE BLOCO
+            if (window.classification && this.gameStartTime) {
+                const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
+                const winnerName = winner === 'Player 1' ? 'Player 1' : (winner === 'Player 2' ? 'Player 2' : winner);
+                const loserName = winner === 'Player 1' ? (this.options.mode === 'pvc' ? 'AI' : 'Player 2') : 'Player 1';
+                
+                // Contar peças restantes do vencedor
+                const winnerPieces = this.content.filter(p => p && p.player === (winner === 'Player 1' ? 'player-1' : 'player-2')).length;
+                
+                console.log('Recording game result for classification:', {
+                    winner: winnerName,
+                    loser: loserName,
+                    duration: gameDuration,
+                    piecesRemaining: winnerPieces,
+                    mode: this.options.mode
+                });
+                
+                window.classification.recordGame(
+                    'Player 1',
+                    this.options.mode === 'pvc' ? 'AI' : 'Player 2',
+                    winnerName,
+                    gameDuration,
+                    winnerPieces,
+                    this.cols, // total pieces
+                    this.options.mode
+                );
+            }
+            
             // Configure buttons
             document.getElementById('newGameFromVictory').onclick = () => {
                 modal.classList.add('hidden');

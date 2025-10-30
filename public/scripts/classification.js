@@ -1,11 +1,11 @@
 /**
  * @file classification.js
- * @description Game statistics and classification system
- * Tracks player performance, win rates, and game history
+ * @description Game statistics and classification system for AI matches
+ * Tracks player performance, win rates, and game history against AI
  */
 
 /**
- * Classification system for tracking game statistics
+ * Classification system for tracking game statistics against AI
  * @class
  */
 class Classification {
@@ -42,7 +42,6 @@ class Classification {
             // Setup classification controls
             const refreshBtn = document.getElementById('refreshClassification');
             const clearBtn = document.getElementById('clearClassification');
-            const filterSelect = document.getElementById('classificationFilter');
 
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', () => {
@@ -55,13 +54,6 @@ class Classification {
                 clearBtn.addEventListener('click', () => {
                     console.log('Clearing classification');
                     this.clearAll();
-                });
-            }
-
-            if (filterSelect) {
-                filterSelect.addEventListener('change', () => {
-                    console.log('Classification filter changed:', filterSelect.value);
-                    this.refreshDisplay();
                 });
             }
 
@@ -97,7 +89,8 @@ class Classification {
         return {
             players: {},
             totalGames: 0,
-            lastUpdated: new Date().toISOString()
+            lastUpdated: new Date().toISOString(),
+            gameHistory: []
         };
     }
 
@@ -115,37 +108,84 @@ class Classification {
     }
 
     /**
-     * Record a completed game
+     * Record a completed game against AI with piece-based scoring
      * @param {string} player1 - Player 1 name
      * @param {string} player2 - Player 2 name
      * @param {string} winner - Winning player name
      * @param {number} gameDuration - Game duration in seconds
+     * @param {number} winnerPiecesRemaining - Number of pieces winner has left
+     * @param {number} totalPieces - Total pieces per player at start
+     * @param {string} gameMode - Game mode
      */
-    recordGame(player1, player2, winner, gameDuration) {
-        console.log('Recording game result:', { player1, player2, winner, gameDuration });
+    recordGame(player1, player2, winner, gameDuration, winnerPiecesRemaining, totalPieces = 9, gameMode = 'pvc') {
+        console.log('Recording AI game result:', { 
+            player1, 
+            player2, 
+            winner, 
+            gameDuration,
+            winnerPiecesRemaining,
+            totalPieces,
+            gameMode 
+        });
+        
+        // Calcular pontuação baseada em peças restantes
+        const score = this.calculatePieceBasedScore(winnerPiecesRemaining, totalPieces, gameMode);
         
         this.stats.totalGames++;
         
-        this.updatePlayerStats(player1, winner === player1, gameDuration);
-        this.updatePlayerStats(player2, winner === player2, gameDuration);
+        // Atualizar estatísticas dos jogadores com pontuação
+        this.updatePlayerStats(player1, winner === player1, gameDuration, gameMode, score, winnerPiecesRemaining);
+        this.updatePlayerStats(player2, winner === player2, gameDuration, gameMode, score, winnerPiecesRemaining);
+        
+        // Salvar histórico do jogo com pontuação
+        this.saveGameHistory(player1, player2, winner, gameDuration, score, winnerPiecesRemaining, gameMode);
         
         this.saveStats();
         this.refreshDisplay();
     }
 
     /**
-     * Update individual player statistics
+     * Calculate score based on remaining pieces against AI
+     * @param {number} piecesRemaining - Pieces remaining for winner
+     * @param {number} totalPieces - Total pieces per player at start
+     * @param {string} gameMode - Game mode
+     * @returns {number} - Calculated score
+     */
+    calculatePieceBasedScore(piecesRemaining, totalPieces = 9, gameMode = 'pvc') {
+        // Pontuação base: 100 pontos por vitória
+        let baseScore = 100;
+        
+        // Bônus por peças restantes: +15 pontos por peça (mais valorizado contra IA)
+        const piecesBonus = piecesRemaining * 15;
+        
+        // Bônus por vitória perfeita (todas as peças restantes)
+        const perfectBonus = piecesRemaining === totalPieces ? 100 : 0;
+        
+        // Multiplicador para vitórias contra IA
+        const aiMultiplier = gameMode === 'pvc' ? 1.5 : 1.0;
+        
+        const totalScore = Math.floor((baseScore + piecesBonus + perfectBonus) * aiMultiplier);
+        
+        console.log(`Score calculation: Base=${baseScore}, PiecesBonus=${piecesBonus}, PerfectBonus=${perfectBonus}, Multiplier=${aiMultiplier}, Total=${totalScore}`);
+        
+        return totalScore;
+    }
+
+    /**
+     * Update individual player statistics with scoring
      * @param {string} playerName - Player name
      * @param {boolean} isWinner - Whether player won
      * @param {number} gameDuration - Game duration in seconds
+     * @param {string} gameMode - Game mode
+     * @param {number} score - Game score
+     * @param {number} piecesRemaining - Pieces remaining (for winner)
      */
-    updatePlayerStats(playerName, isWinner, gameDuration) {
+    updatePlayerStats(playerName, isWinner, gameDuration, gameMode, score, piecesRemaining) {
         if (!this.stats.players[playerName]) {
             this.stats.players[playerName] = {
                 wins: 0,
                 losses: 0,
-                bestTime: null,
-                totalPlayTime: 0,
+                totalScore: 0,
                 gamesPlayed: 0,
                 lastPlayed: new Date().toISOString()
             };
@@ -156,18 +196,53 @@ class Classification {
         
         if (isWinner) {
             player.wins++;
-            // Update best time for wins
-            if (!player.bestTime || gameDuration < player.bestTime) {
-                player.bestTime = gameDuration;
-            }
+            
+            // Atualizar pontuação
+            player.totalScore += score;
         } else {
             player.losses++;
         }
 
-        player.totalPlayTime += gameDuration;
         player.lastPlayed = new Date().toISOString();
         
         console.log(`Updated stats for ${playerName}:`, player);
+    }
+
+    /**
+     * Save game history with detailed scoring information
+     * @param {string} player1 - Player 1 name
+     * @param {string} player2 - Player 2 name
+     * @param {string} winner - Winning player name
+     * @param {number} gameDuration - Game duration in seconds
+     * @param {number} score - Game score
+     * @param {number} winnerPiecesRemaining - Pieces remaining for winner
+     * @param {string} gameMode - Game mode
+     */
+    saveGameHistory(player1, player2, winner, gameDuration, score, winnerPiecesRemaining, gameMode) {
+        if (!this.stats.gameHistory) {
+            this.stats.gameHistory = [];
+        }
+        
+        const gameRecord = {
+            id: Date.now().toString(),
+            player1,
+            player2,
+            winner,
+            duration: gameDuration,
+            score: score,
+            winnerPiecesRemaining: winnerPiecesRemaining,
+            mode: gameMode,
+            date: new Date().toISOString(),
+            timestamp: Date.now()
+        };
+        
+        // Manter apenas os últimos 50 jogos no histórico
+        this.stats.gameHistory.unshift(gameRecord);
+        if (this.stats.gameHistory.length > 50) {
+            this.stats.gameHistory = this.stats.gameHistory.slice(0, 50);
+        }
+        
+        console.log('Game history saved:', gameRecord);
     }
 
     /**
@@ -204,39 +279,22 @@ class Classification {
     }
 
     /**
-     * Get player rankings with optional filtering
-     * @param {string} filter - Filter type ('all', 'player1', 'player2', 'ai')
+     * Get player rankings
      * @returns {Array} - Sorted player rankings
      */
-    getRankings(filter = 'all') {
+    getRankings() {
         let players = Object.entries(this.stats.players).map(([name, stats]) => ({
             name,
             wins: stats.wins || 0,
             losses: stats.losses || 0,
-            bestTime: stats.bestTime || null,
-            totalPlayTime: stats.totalPlayTime || 0,
+            totalScore: stats.totalScore || 0,
             gamesPlayed: stats.gamesPlayed || 0,
-            lastPlayed: stats.lastPlayed,
             winRate: this.calculateWinRate(stats.wins || 0, stats.losses || 0)
         }));
 
-        // Apply filter
-        if (filter !== 'all') {
-            players = players.filter(player => {
-                const nameLower = player.name.toLowerCase();
-                switch (filter) {
-                    case 'player1':
-                        return nameLower.includes('player 1') || nameLower === 'player1';
-                    case 'player2':
-                        return nameLower.includes('player 2') || nameLower === 'player2' || nameLower.includes('ai');
-                    default:
-                        return nameLower.includes(filter);
-                }
-            });
-        }
-
-        // Sort by wins (then by win rate, then by games played)
+        // Ordenar por pontuação total (principal critério)
         return players.sort((a, b) => {
+            if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
             if (b.wins !== a.wins) return b.wins - a.wins;
             if (parseFloat(b.winRate) !== parseFloat(a.winRate)) return parseFloat(b.winRate) - parseFloat(a.winRate);
             return b.gamesPlayed - a.gamesPlayed;
@@ -249,43 +307,42 @@ class Classification {
     refreshDisplay() {
         console.log('Refreshing classification display');
         const tbody = document.getElementById('classificationBody');
-        const filter = document.getElementById('classificationFilter')?.value || 'all';
         
         if (!tbody) {
             console.error('Classification table body not found');
             return;
         }
 
-        const rankings = this.getRankings(filter);
+        const rankings = this.getRankings();
         console.log('Displaying rankings:', rankings);
         
         tbody.innerHTML = '';
 
         if (rankings.length === 0) {
             const row = document.createElement('tr');
-            row.innerHTML = `<td colspan="7" style="text-align: center; padding: 20px;">No games recorded yet</td>`;
+            row.innerHTML = `<td colspan="5" style="text-align: center; padding: 20px;">No games recorded yet</td>`;
             tbody.appendChild(row);
-            return;
+            console.log('No games found in classification');
+        } else {
+            console.log(`Found ${rankings.length} players in classification`);
+            rankings.forEach((player, index) => {
+                const row = document.createElement('tr');
+                if (index < 3) row.className = `rank-${index + 1}`;
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${player.name}</td>
+                    <td>${player.wins}</td>
+                    <td>${player.losses}</td>
+                    <td>${player.totalScore.toLocaleString()}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
         }
 
-        rankings.forEach((player, index) => {
-            const row = document.createElement('tr');
-            if (index < 3) row.className = `rank-${index + 1}`;
-            
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${player.name}</td>
-                <td>${player.wins}</td>
-                <td>${player.losses}</td>
-                <td>${player.winRate}%</td>
-                <td>${this.formatTime(player.bestTime)}</td>
-                <td>${this.formatDate(player.lastPlayed)}</td>
-            `;
-            
-            tbody.appendChild(row);
-        });
-
         this.updateOverallStats();
+        console.log('Classification display refreshed successfully');
     }
 
     /**
@@ -301,10 +358,11 @@ class Classification {
         const totalPlayers = Object.keys(this.stats.players).length;
         const totalWins = Object.values(this.stats.players).reduce((sum, player) => sum + (player.wins || 0), 0);
         const totalGames = this.stats.totalGames || 0;
+        const totalScore = Object.values(this.stats.players).reduce((sum, player) => sum + (player.totalScore || 0), 0);
         
         container.innerHTML = `
             <div class="stat-item">
-                <span class="stat-label">Total Games Played:</span>
+                <span class="stat-label">Total Games:</span>
                 <span class="stat-value">${totalGames}</span>
             </div>
             <div class="stat-item">
@@ -312,8 +370,12 @@ class Classification {
                 <span class="stat-value">${totalPlayers}</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">Total Wins Recorded:</span>
+                <span class="stat-label">Total Wins:</span>
                 <span class="stat-value">${totalWins}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Total Score:</span>
+                <span class="stat-value">${totalScore.toLocaleString()}</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">Last Updated:</span>

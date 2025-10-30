@@ -25,7 +25,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById(modalId);
 
             if (btn && modal) {
-                btn.addEventListener('click', () => modal.classList.remove('hidden'));
+                btn.addEventListener('click', () => {
+                    modal.classList.remove('hidden');
+                    
+                    // ATUALIZAR CLASSIFICAÇÃO QUANDO O MODAL FOR ABERTO
+                    if (btnId === 'classBtn' && window.classification) {
+                        console.log('Opening classification modal - refreshing data');
+                        window.classification.refreshDisplay();
+                    }
+                });
             }
         }
     }
