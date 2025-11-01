@@ -1,77 +1,75 @@
-/**
- * @file Piece.js
- * @description
- * Represents a single Tâb piece (token) on the board.
- * A piece has a player owner and a lifecycle state:
- *  - "unmoved" (only moves with value 1 / Tâb)
- *  - "moved"
- *  - "promoted" (reaches enemy base row)
- *
- * This class is purely logical but can generate a DOM element
- * to be displayed on the board.
- */
 
+// Enum for piece State
+export class PieceState {
+    static UNMOVED = 'unmoved';
+    static MOVED = 'moved';
+    static PROMOTED = 'promoted';
+}
+
+/** Player tokens */
 export class Piece {
   /**
-   * @param {string} player - Either "player-1" or "player-2".
+   * @param {string} player - ID of the player to which this piece belongs.
+   * @param {number} position - index showing the position of this piece.
+   * @param {String} state - state of this piece: 'unmoved', 'moved' or 'promoted'
    */
-  constructor(player) {
-    /** @type {string} */
-    this.player = player;
+    constructor(playerId, position, state = PieceState.UNMOVED) {
+        /** @type {String} player to which this piece belongs */
+        this.player = playerId;
+        /** @type {number} board.cells index showing the position of this piece */
+        this.position = position;
+        /** @type {String} one of ['unmoved', 'moved', 'promoted'] */
+        this.state = state
+    }
 
-    /** @type {'unmoved'|'moved'|'promoted'} */
-    this.state = 'unmoved';
-  }
+    markMoved() {
+        if (this.state === PieceState.UNMOVED) this.state = PieceState.MOVED;
+    }
 
-  // ────────────────────────────────────────────────
-  // STATE MANAGEMENT
-  // ────────────────────────────────────────────────
+    promote() {
+        this.state = PieceState.PROMOTED;
+    }
 
-  /**
-   * Determines whether this piece can move with a given roll value.
-   * @param {number} value - The current dice value (1–6).
-   * @returns {boolean}
-   */
-  canMoveWith(value) {
-    if (this.state === 'unmoved') return value === 1;
-    return true;
-  }
+    // ────────────────────────────────────────────────
+    // DOM REPRESENTATION
+    // ────────────────────────────────────────────────
 
-  /**
-   * Marks this piece as having made its first move.
-   */
-  markMoved() {
-    if (this.state === 'unmoved') this.state = 'moved';
-  }
+    //TODO: Move to rederer
+    createElement() {
+        const el = document.createElement('div');
+        el.className = `board-token ${this.playerId} ${this.state}`;
+        el.dataset.player = this.player;
+        el.dataset.state = this.state;
 
-  /**
-   * Promotes the piece (enters enemy's starting row).
-   */
-  promote() {
-    this.state = 'promoted';
-  }
+        if(this.state === PieceState.PROMOTED){
+            el.innerText = "✡";
+        }else if(this.state === PieceState.MOVED){
+            el.innerText = "●";   
+        }
+        
+        return el;
+    }
 
-  /**
-   * Returns whether the piece is promoted.
-   * @returns {boolean}
-   */
-  isPromoted() {
-    return this.state === 'promoted';
-  }
+    //TODO: Move to Movement logic controler
+    canMove(diceValue, board) {
+        if (this.state === PieceState.UNMOVED && diceValue !== 1) return false;
 
-  // ────────────────────────────────────────────────
-  // DOM REPRESENTATION
-  // ────────────────────────────────────────────────
+        const targetPosition = board.calculateMove(this.position, diceValue);
+        if (targetPosition === null) return false;
 
-  /**
-   * Creates a DOM element representing the piece.
-   * @returns {HTMLElement}
-   */
-  createElement() {
-    const el = document.createElement('div');
-    el.className = `board-token ${this.player} ${this.state}`;
-    el.dataset.player = this.player;
-    el.dataset.state = this.state;
-    return el;
-  }
+        const targetPiece = board.getPieceAt(targetPosition);
+        return !targetPiece || targetPiece.playerId !== this.playerId;
+    }
+
+    moveTo(newPosition, board) {
+        const capturedPiece = board.getPieceAt(newPosition);
+        board.movePiece(this.position, newPosition);
+        this.position = newPosition;
+
+        if (!this.isConverted) {
+            this.isConverted = true;
+        }
+
+        return capturedPiece;
+    }
 }
