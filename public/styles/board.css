@@ -61,7 +61,10 @@
     user-select: none;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    
+
+    justify-content: center;
+    align-items: center;
+
     /* Dynamic sizing to fit squares */
     width: calc(630px / var(--cols, 9));
     height: calc(630px / var(--cols, 9));
@@ -78,7 +81,7 @@
 
 .board-token.player-2 {
     background: maroon;
-    color: white;
+    color: black;
     border: 3px solid black;
 }
 

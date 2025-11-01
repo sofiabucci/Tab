@@ -484,6 +484,9 @@ class GameBoard {
                     token.style.opacity = '1.0';
                 } else {
                     token.style.opacity = '0.7';
+                    token.innerText = "●";
+                    // token.innerText = "✡"; Promoted token
+                  
                 }
                 
                 cell.appendChild(token);
