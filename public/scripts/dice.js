@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function rollOnce() {
         if (isRolling) return;
         
-        // Verifica se é a vez do jogador e se pode rolar
+        // Verify if it's the player's turn or they can roll again
         if (!window.isPlayerTurn && !window.canRollAgain) {
             return;
         }
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
             broadcastRollEvent(rollResult);
             isRolling = false;
             
-            // Determina se pode rolar novamente baseado no resultado
+            // Determinates if player can
             window.canRollAgain = rollResult.repeats;
             window.isPlayerTurn = false;
             

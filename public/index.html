@@ -6,10 +6,18 @@
   <title>Tâb Game</title>
   <link rel="stylesheet" href="styles/main.css">
   <link rel="stylesheet" href="styles/board.css">
+  <link rel="stylesheet" href="styles/dice.css">
+  <link rel="stylesheet" href="styles/game-section.css">
+  <link rel="stylesheet" href="styles/modals.css">
+  <script src="scripts/navbar.js"></script>
+  <script src="scripts/setup.js"></script>
+  <script src="scripts/board.js"></script>
+  <script src="scripts/dice.js"></script>
+  <script src="scripts/ia.js"></script>
+  <script src="scripts/classification.js"></script>
 </head>
 <body>
 
-  <!-- NAVBAR -->
   <nav class="navbar">
     <div class="logo">
       <img src="assets/logo.png" alt="Tâb Logo">
@@ -23,15 +31,11 @@
   </nav>
 
   <section id="gameSection">
-    <h2 hidden>GameBoard and Dice Area</h2>
-    <!-- Board à esquerda - APENAS O TABULEIRO -->
+    <h2 hidden>GameArea</h2>
     <div id="board-container" class="board-container">
-      <!-- O tabuleiro será gerado aqui -->
     </div>
 
-    <!-- Container direito com todos os elementos de controle -->
     <div class="right-container">
-      <!-- Player info - acima da caixa de mensagens -->
       <div class="player-info-container">
         <div class="player-info-box" id="playerInfo">
           <div class="player-info-item">
@@ -45,20 +49,17 @@
         </div>
       </div>
 
-      <!-- Caixa de mensagens -->
       <div class="message-container">
         <div class="message-box" id="gameMessage">
           Welcome to Tâb Game!
         </div>
         
-        <!-- Botões Pass e Quit - MESMA COR DAS CAIXAS -->
         <div class="functionsGame">
           <button id="passBtn" class="game-action-btn">Pass Turn</button>
           <button id="resignBtn" class="game-action-btn">Resign</button>
         </div>
       </div>
 
-      <!-- Dado abaixo dos botões -->
       <div class="dice-container">
         <div class="dice-box">
           <button id="rollDiceBtn">Roll</button>
@@ -68,7 +69,6 @@
     </div>
   </section>
 
-  <!-- MODAL: GAME SETUP -->
   <div id="setupModal" class="modal hidden">
     <div class="setup-container">
       <h2 id="gameSetupTitle">Game Setup</h2>
@@ -119,7 +119,6 @@
     </div>
   </div>
 
-  <!-- Outras modais -->
   <div id="rulesModal" class="modal hidden">
     <div class="setup-container rules-modal-container">
       <h2>Tâb Game Rules</h2>
@@ -185,41 +184,56 @@
   </div>
 
   <div id="classModal" class="modal hidden">
-  <div class="setup-container">
-    <h2>Game Classifications</h2>
-    
-    <!-- Filtros e controles -->
-    <div class="classification-controls">
-      <button id="refreshClassification">Refresh</button>
-      <button id="clearClassification">Clear All</button>
-    </div>
+    <div class="setup-container">
+      <h2>Game Classifications</h2>
+      
+      <div class="classification-controls">
+        <button id="refreshClassification">Refresh</button>
+        <button id="clearClassification">Clear All</button>
+      </div>
 
-    <!-- Tabela de classificações simplificada -->
-    <div class="classification-container">
-      <table class="classification-table">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Player</th>
-            <th>Wins</th>
-            <th>Losses</th>
-            <th>Total Score</th>
-          </tr>
-        </thead>
-        <tbody id="classificationBody">
-          <!-- Os dados serão preenchidos via JavaScript -->
-        </tbody>
-      </table>
-    </div>
+      <div class="classification-container">
+        <table class="classification-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Wins</th>
+              <th>Losses</th>
+              <th>Total Score</th>
+            </tr>
+          </thead>
+          <tbody id="classificationBody">
+          </tbody>
+        </table>
+      </div>
 
-    <!-- Estatísticas gerais -->
-    <div class="classification-stats">
-      <h3>Overall Statistics</h3>
-      <div id="overallStats">
-        <!-- Estatísticas serão preenchidas via JavaScript -->
+      <div class="classification-stats">
+        <h3>Overall Statistics</h3>
+        <div id="overallStats">
+          <div class="stat-item">
+            <span class="stat-label">Total Games:</span>
+            <span class="stat-value">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Total Players:</span>
+            <span class="stat-value">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Total Wins:</span>
+            <span class="stat-value">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Total Score:</span>
+            <span class="stat-value">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Last Updated:</span>
+            <span class="stat-value">-</span>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
   </div>
   
   <div id="loginModal" class="modal hidden">
@@ -253,11 +267,5 @@
     </div>
   </div>
 
-  <script src="scripts/navbar.js"></script>
-  <script src="scripts/setup.js"></script>
-  <script src="scripts/board.js"></script>
-  <script src="scripts/dice.js"></script>
-  <script src="scripts/ia.js"></script>
-  <script src="scripts/classification.js"></script>
 </body>
 </html>

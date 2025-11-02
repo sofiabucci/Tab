@@ -292,7 +292,7 @@ class Classification {
             winRate: this.calculateWinRate(stats.wins || 0, stats.losses || 0)
         }));
 
-        // Ordenar por pontuação total (principal critério)
+        // Sort by total score
         return players.sort((a, b) => {
             if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
             if (b.wins !== a.wins) return b.wins - a.wins;
@@ -360,28 +360,23 @@ class Classification {
         const totalGames = this.stats.totalGames || 0;
         const totalScore = Object.values(this.stats.players).reduce((sum, player) => sum + (player.totalScore || 0), 0);
         
-        container.innerHTML = `
-            <div class="stat-item">
-                <span class="stat-label">Total Games:</span>
-                <span class="stat-value">${totalGames}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Total Players:</span>
-                <span class="stat-value">${totalPlayers}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Total Wins:</span>
-                <span class="stat-value">${totalWins}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Total Score:</span>
-                <span class="stat-value">${totalScore.toLocaleString()}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Last Updated:</span>
-                <span class="stat-value">${this.formatDate(this.stats.lastUpdated)}</span>
-            </div>
-        `;
+        // Atualizar apenas os valores, mantendo a estrutura HTML
+        const statItems = container.querySelectorAll('.stat-value');
+        if (statItems.length >= 5) {
+            statItems[0].textContent = totalGames.toString();
+            statItems[1].textContent = totalPlayers.toString();
+            statItems[2].textContent = totalWins.toString();
+            statItems[3].textContent = totalScore.toLocaleString();
+            statItems[4].textContent = this.formatDate(this.stats.lastUpdated);
+        }
+        
+        console.log('Overall stats updated:', {
+            totalGames,
+            totalPlayers,
+            totalWins,
+            totalScore,
+            lastUpdated: this.stats.lastUpdated
+        });
     }
 
     /**

@@ -1,0 +1,149 @@
+/**
+ * @file dice.css
+ * @description Dice and stick visualization styles
+ */
+
+/* Dice Components */
+.dice-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dice-box {
+    background-color: var(--dark-wood);
+    color: var(--text-light);
+    border-radius: 15px;
+    padding: 15px 20px;
+    text-align: center;
+    box-shadow: 0 4px 10px var(--shadow-dark);
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#rollDiceBtn {
+    background: none;
+    border: none;
+    transition: all 0.2s ease-in-out;
+    font-size: 1.25rem;
+    color: var(--text-light);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+#rollDiceBtn:hover:not(:disabled) {
+    transform: scale(1.50);
+}
+
+#rollDiceBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+#diceResult {
+    margin-top: 5px;
+    font-size: 1rem;
+    font-weight: bold;
+    min-height: 24px;
+    color: var(--text-light);
+}
+
+/* Stick Dice Visuals */
+.dice-result-container {
+    text-align: center;
+    font-family: inherit;
+}
+
+.sticks-container {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 10px 0;
+}
+
+.stick {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+}
+
+.stick-segment {
+    width: 20px;
+    height: 8px;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    border: 1px solid;
+}
+
+.stick-light {
+    background-color: #f0f0f0;
+    border-color: #ccc;
+    box-shadow: 0 1px 3px rgba(255, 255, 255, 0.8);
+}
+
+.stick-dark {
+    background-color: #8b4513;
+    border-color: #654321;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.stick:hover .stick-segment {
+    transform: scale(1.1);
+}
+
+.dice-result-info {
+    margin-top: 10px;
+    font-size: 1.1rem;
+}
+
+.dice-light-count,
+.dice-value {
+    margin-bottom: 5px;
+}
+
+.dice-repeats {
+    font-weight: bold;
+}
+
+.dice-repeat-yes { color: var(--accent-gold); }
+.dice-repeat-no { color: var(--text-light); }
+
+/* Dice Rolling Animation */
+.dice-rolling {
+    text-align: center;
+    font-family: inherit;
+}
+
+.dice-rolling-text {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+}
+
+.dice-rolling-animation {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.dice-rolling-stick {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dice-rolling-segment {
+    width: 20px;
+    height: 8px;
+    background: var(--light-wood);
+    border-radius: 2px;
+    animation: dice-pulse 0.5s infinite alternate;
+}
+
+@keyframes dice-pulse {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
+}

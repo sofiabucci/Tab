@@ -7,7 +7,7 @@
 
 /* ===== BOARD CONTAINER ===== */
 #board-container {
-    padding: 40px;
+    padding: 20px;
     background: var(--light-wood);
     border: 8px solid var(--dark-wood);
     border-radius: 20px;
@@ -18,6 +18,8 @@
     min-height: fit-content;
     height: fit-content;
     width: fit-content;
+    max-width: 95vw;
+    overflow: auto;
 }
 
 /* ===== BOARD GRID SYSTEM ===== */
@@ -27,8 +29,8 @@
     align-items: center;
     width: fit-content;
     height: fit-content;
-    /* Dynamic gap based on column count */
-    gap: calc(60px / var(--cols, 9));
+    gap: 8px;
+    padding: 10px;
 }
 
 .board-square {
@@ -41,11 +43,12 @@
     box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.3);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     
-    /* Dynamic sizing based on column count */
-    width: calc(700px / var(--cols, 9));
-    height: calc(700px / var(--cols, 9));
-    min-width: 45px;
-    min-height: 45px;
+    width: calc(725px / var(--cols, 9));
+    height: calc(725px / var(--cols, 9));
+    min-width: 30px;
+    min-height: 30px;
+    max-width: 100px;
+    max-height: 100px;
 }
 
 .board-square:hover {
@@ -61,15 +64,16 @@
     user-select: none;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-
     justify-content: center;
     align-items: center;
 
-    /* Dynamic sizing to fit squares */
-    width: calc(630px / var(--cols, 9));
-    height: calc(630px / var(--cols, 9));
-    min-width: 38px;
-    min-height: 38px;
+    width: calc(625px / var(--cols, 9));
+    height: calc(625px / var(--cols, 9));
+    min-width: 24px;
+    min-height: 24px;
+    max-width: 80px;
+    max-height: 80px;
+    
 }
 
 /* Player-specific token styles */
@@ -103,10 +107,4 @@
 
 .winning-token {
     animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
 }

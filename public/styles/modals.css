@@ -1,0 +1,335 @@
+/**
+ * @file modals.css
+ * @description Modal and form styles
+ */
+
+/* Modal System */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.setup-container {
+    background-color: var(--dark-wood);
+    border-radius: 30px;
+    width: 500px;
+    padding: 30px 40px 50px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-light);
+}
+
+.setup-container h2 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+/* Form Elements */
+.setup-form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 25px;
+    width: 100%;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    font-size: 1.1rem;
+}
+
+label {
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+/* Input Elements */
+select,
+input[type="text"],
+input[type="password"] {
+    background-color: var(--light-wood);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    width: 100%;
+    color: #402200;
+}
+
+select:hover,
+input[type="text"]:hover,
+input[type="password"]:hover {
+    background-color: #deb887;
+}
+
+select:focus,
+input[type="text"]:focus,
+input[type="password"]:focus {
+    outline: none;
+    background-color: #deb887;
+    box-shadow: 0 0 0 2px rgba(210, 180, 140, 0.5);
+}
+
+input::placeholder {
+    color: var(--dark-wood);
+    opacity: 0.7;
+}
+
+/* Button Groups */
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    gap: 15px;
+}
+
+button {
+    flex: 1;
+    background-color: var(--light-wood);
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #deb887;
+    transform: scale(1.05);
+}
+
+/* Specific Modal Buttons */
+#loginForm button,
+#setupForm button,
+#victoryModal button {
+    padding: 12px 0;
+    margin-top: 10px;
+    width: 100px;
+}
+
+/* Rules Modal */
+.rules-modal-container {
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.rules-content {
+    text-align: left;
+    overflow-y: auto;
+    padding: 10px 15px;
+    line-height: 1.6;
+    width: 100%;
+    flex: 1;
+    margin-bottom: 15px;
+    border: 2px solid var(--light-wood);
+    border-radius: 10px;
+    background-color: rgba(107, 69, 25, 0.3);
+}
+
+.rules-content h3 {
+    color: var(--light-paper);
+    margin: 15px 0 8px 0;
+    border-bottom: 2px solid var(--light-wood);
+    padding-bottom: 5px;
+    font-size: 1.2rem;
+}
+
+.rules-content p {
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.rules-content ul {
+    margin: 8px 0 15px 20px;
+}
+
+.rules-content li {
+    margin-bottom: 5px;
+    font-size: 1rem;
+}
+
+/* Rules Table */
+.rules-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 15px 0;
+    background-color: #a56b3a;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.9rem;
+}
+
+.rules-table th,
+.rules-table td {
+    padding: 8px 10px;
+    text-align: center;
+    border: 1px solid var(--dark-wood);
+}
+
+.rules-table th {
+    background-color: #6b4519;
+    font-weight: bold;
+}
+
+.rules-table tr:nth-child(even) {
+    background-color: #9c5f2f;
+}
+
+
+/* ===== CLASSIFICATION MODAL ===== */
+
+.classification-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.classification-controls select,
+.classification-controls button {
+    padding: 8px 12px;
+    border: 2px solid var(--light-wood);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 1rem;
+}
+
+.classification-controls select:hover,
+.classification-controls button:hover {
+    background: #deb887;
+    transform: scale(1.05);
+}
+
+.classification-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background: #b68c55;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px var(--shadow-dark);
+}
+
+.classification-table th {
+    font-weight: bold;
+    padding: 12px 15px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.classification-table td {
+    padding: 10px 15px;
+    text-align: center;
+    border-bottom: 1px solid var(--light-wood);
+    font-size: 0.95rem;
+}
+
+.classification-stats {
+    margin-top: 20px;
+    padding: 15px;
+    background: #b68c55;
+    border-radius: 8px;
+}
+
+.classification-stats h3 {
+    margin-bottom: 15px;
+    color: #333;
+    text-align: center;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    font-weight: bold;
+    color: #555;
+}
+
+.stat-value {
+    color: #333;
+    font-weight: 600;
+}
+
+/* Ranking Highlights */
+.rank-1 {
+    background-color: #fff9c4 !important;
+    border-left: 4px solid var(--accent-gold);
+}
+
+.rank-2 {
+    background-color: #f5f5f5 !important;
+    border-left: 4px solid #c0c0c0;
+}
+
+.rank-3 {
+    background-color: #ffecb3 !important;
+    border-left: 4px solid #cd7f32;
+}
+
+.rank-1 td:first-child::before { content: "🥇 "; font-size: 1.2em; }
+.rank-2 td:first-child::before { content: "🥈 "; font-size: 1.2em; }
+.rank-3 td:first-child::before { content: "🥉 "; font-size: 1.2em; }
+
+.classification-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: 15px;
+    margin-bottom: 20px;
+}
+
+#classificationBody {
+    color: black;
+}
+
+/* Scrollbar Styling */
+.classification-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.classification-container::-webkit-scrollbar-track {
+    background: #6b4519;
+    border-radius: 4px;
+}
+
+.classification-container::-webkit-scrollbar-thumb {
+    background: var(--light-wood);
+    border-radius: 4px;
+}
+
+.classification-container::-webkit-scrollbar-thumb:hover {
+    background: #deb887;
+}

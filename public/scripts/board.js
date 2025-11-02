@@ -73,6 +73,10 @@ class GameBoard {
         const board = parent.querySelector('.board');
         board.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
         
+        // Aplicar variáveis CSS para tamanhos dinâmicos
+        board.style.setProperty('--cols', this.cols.toString());
+        parent.style.setProperty('--cols', this.cols.toString());
+        
         for (let i = 0; i < this.cols * 4; i++) {
             const cell = document.createElement('div');
             cell.className = 'board-square';
@@ -223,10 +227,10 @@ class GameBoard {
         this.content[to] = piece;
         this.content[from] = null;
 
-        // Render antes de verificar fim de jogo
+        // Render updated board
         this.render();
         
-        // Verificar fim de jogo APÓS o movimento
+        // Verify game end
         this.checkGameEnd();
 
         // End turn (only one move per turn even with repeat)
@@ -237,9 +241,9 @@ class GameBoard {
      * Ends the current turn and switches players
      */
     endTurn() {
-        // Se foi um lançamento que permite repetição, mantém o turno
+        // If last roll allows repeat
         if (window.lastRoll && window.lastRoll.repeats) {
-            // Permite rolar novamente no mesmo turno
+            // Allow same player to roll again
             this.diceRolled = false;
             window.canRollAgain = true;
             
@@ -249,7 +253,7 @@ class GameBoard {
             
             this.render();
             
-            // Se for IA, faz reroll automático após delay
+            // If it's AI's turn, trigger automatic roll
             if (this.isAITurn()) {
                 setTimeout(() => this.triggerAIRoll(), 1000);
             }
@@ -391,13 +395,13 @@ class GameBoard {
             reason.textContent = isResign ? 'Player resigned' : 'All pieces captured';
             modal.classList.remove('hidden');
             
-            // REGISTRAR NA CLASSIFICAÇÃO - ADICIONE ESTE BLOCO
+            // Record game result for classification
             if (window.classification && this.gameStartTime) {
                 const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
                 const winnerName = winner === 'Player 1' ? 'Player 1' : (winner === 'Player 2' ? 'Player 2' : winner);
                 const loserName = winner === 'Player 1' ? (this.options.mode === 'pvc' ? 'AI' : 'Player 2') : 'Player 1';
                 
-                // Contar peças restantes do vencedor
+                // Count remaining pieces for winner
                 const winnerPieces = this.content.filter(p => p && p.player === (winner === 'Player 1' ? 'player-1' : 'player-2')).length;
                 
                 console.log('Recording game result for classification:', {
@@ -447,14 +451,14 @@ class GameBoard {
     checkGameEnd() {
         if (!this.gameActive) return;
         
-        // Contar TODAS as peças (convertidas e não convertidas)
+        // Count pieces for each player
         const p1Pieces = this.content.filter(p => p && p.player === 'player-1').length;
         const p2Pieces = this.content.filter(p => p && p.player === 'player-2').length;
         
         console.log('Player 1 pieces (total):', p1Pieces);
         console.log('Player 2 pieces (total):', p2Pieces);
         
-        // Verificar se algum player não tem mais peças no tabuleiro
+        // Verify if a player has no pieces left
         if (p1Pieces === 0) {
             const winner = 'Player 2';
             this.gameActive = false;
@@ -540,7 +544,6 @@ class GameBoard {
         const msg = `Roll: ${roll.value} (${names[roll.value]})${repeatMsg}`;
         this.showMessage(msg);
         
-        // Atualiza estado do botão de rolar
         if (window.updateRollButtonState) {
             window.updateRollButtonState();
         }
@@ -548,7 +551,7 @@ class GameBoard {
         this.render();
         
         if (this.isAITurn()) {
-            // Se for IA, faz movimento após delay
+            // If it's AI's turn, make move after short delay
             setTimeout(() => this.makeAIMove(), 500);
         }
     }
