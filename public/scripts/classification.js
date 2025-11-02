@@ -116,32 +116,123 @@ class Classification {
      * @param {number} winnerPiecesRemaining - Number of pieces winner has left
      * @param {number} totalPieces - Total pieces per player at start
      * @param {string} gameMode - Game mode
+     * @param {boolean} isResign - Whether the game ended by resignation
+     * @param {string} resigningPlayer - Player who resigned (null if not resign)
      */
-    recordGame(player1, player2, winner, gameDuration, winnerPiecesRemaining, totalPieces = 9, gameMode = 'pvc') {
-        console.log('Recording AI game result:', { 
+    recordGame(player1, player2, winner, gameDuration, winnerPiecesRemaining, totalPieces = 9, gameMode = 'pvc', isResign = false, resigningPlayer = null) {
+        console.log('=== RECORDING GAME ===');
+        console.log('Game details:', { 
             player1, 
             player2, 
             winner, 
-            gameDuration,
-            winnerPiecesRemaining,
-            totalPieces,
-            gameMode 
+            gameMode,
+            isResign,
+            resigningPlayer
         });
         
-        // Calcular pontuação baseada em peças restantes
-        const score = this.calculatePieceBasedScore(winnerPiecesRemaining, totalPieces, gameMode);
+        // Calculate score based on remaining pieces
+        const score = this.calculatePieceBasedScore(winnerPiecesRemaining, totalPieces, gameMode, isResign);
         
         this.stats.totalGames++;
         
-        // Atualizar estatísticas dos jogadores com pontuação
-        this.updatePlayerStats(player1, winner === player1, gameDuration, gameMode, score, winnerPiecesRemaining);
-        this.updatePlayerStats(player2, winner === player2, gameDuration, gameMode, score, winnerPiecesRemaining);
+        const actualPlayer1 = 'Player 1';
+        const actualPlayer2 = gameMode === 'pvc' ? 'AI' : 'Player 2';
         
-        // Salvar histórico do jogo com pontuação
-        this.saveGameHistory(player1, player2, winner, gameDuration, score, winnerPiecesRemaining, gameMode);
+        console.log('Using player names:', { actualPlayer1, actualPlayer2 });
+        
+        // DETERMINE WINNER AND LOSER
+        let winnerName, loserName;
+        
+        if (winner === 'Player 1') {
+            winnerName = actualPlayer1;
+            loserName = actualPlayer2;
+        } else if (winner === 'Player 2') {
+            winnerName = actualPlayer2;
+            loserName = actualPlayer1;
+        } else if (winner === 'AI') {
+            winnerName = 'AI';
+            loserName = actualPlayer1;
+        } else {
+            // Fallback
+            winnerName = winner;
+            loserName = (winner === actualPlayer1) ? actualPlayer2 : actualPlayer1;
+        }
+        
+        console.log('Determined:', { winnerName, loserName });
+        
+        if (isResign) {
+            console.log(`RESIGN: ${winnerName} wins, ${loserName} resigned`);
+            
+            // Winner gets reduced points
+            this.addWin(winnerName, score);
+            // Loser gets a loss
+            this.addLoss(loserName);
+        } else {
+            console.log(`NORMAL GAME: ${winnerName} wins`);
+            
+            // Winner gets full points
+            this.addWin(winnerName, score);
+            // Loser gets a loss
+            this.addLoss(loserName);
+        }
+        
+        // Save game history
+        this.saveGameHistory(actualPlayer1, actualPlayer2, winnerName, gameDuration, score, winnerPiecesRemaining, gameMode, isResign, resigningPlayer);
         
         this.saveStats();
         this.refreshDisplay();
+        
+        console.log('=== GAME RECORDED ===');
+    }
+
+    /**
+     * Add a win with score to player
+     * @param {string} playerName - Player name
+     * @param {number} score - Score to add
+     */
+    addWin(playerName, score) {
+        if (!this.stats.players[playerName]) {
+            this.stats.players[playerName] = this.createPlayerStats();
+        }
+        
+        const player = this.stats.players[playerName];
+        player.wins++;
+        player.totalScore += score;
+        player.gamesPlayed++;
+        player.lastPlayed = new Date().toISOString();
+        
+        console.log(`ADD WIN: ${playerName} - Wins: ${player.wins}, Score: +${score}, Total: ${player.totalScore}`);
+    }
+
+    /**
+     * Add a loss to player
+     * @param {string} playerName - Player name
+     */
+    addLoss(playerName) {
+        if (!this.stats.players[playerName]) {
+            this.stats.players[playerName] = this.createPlayerStats();
+        }
+        
+        const player = this.stats.players[playerName];
+        player.losses++;
+        player.gamesPlayed++;
+        player.lastPlayed = new Date().toISOString();
+        
+        console.log(`ADD LOSS: ${playerName} - Losses: ${player.losses}`);
+    }
+
+    /**
+     * Create default player statistics
+     * @returns {Object} - Default player stats
+     */
+    createPlayerStats() {
+        return {
+            wins: 0,
+            losses: 0,
+            totalScore: 0,
+            gamesPlayed: 0,
+            lastPlayed: new Date().toISOString()
+        };
     }
 
     /**
@@ -149,63 +240,27 @@ class Classification {
      * @param {number} piecesRemaining - Pieces remaining for winner
      * @param {number} totalPieces - Total pieces per player at start
      * @param {string} gameMode - Game mode
+     * @param {boolean} isResign - Whether the game ended by resignation
      * @returns {number} - Calculated score
      */
-    calculatePieceBasedScore(piecesRemaining, totalPieces = 9, gameMode = 'pvc') {
-        // Pontuação base: 100 pontos por vitória
-        let baseScore = 100;
+    calculatePieceBasedScore(piecesRemaining, totalPieces = 9, gameMode = 'pvc', isResign = false) {
+        // Base score: 100 points per victory (reduced in case of resign)
+        let baseScore = isResign ? 50 : 100;
         
-        // Bônus por peças restantes: +15 pontos por peça (mais valorizado contra IA)
+        // Bonus for remaining pieces: +15 points per piece
         const piecesBonus = piecesRemaining * 15;
         
-        // Bônus por vitória perfeita (todas as peças restantes)
-        const perfectBonus = piecesRemaining === totalPieces ? 100 : 0;
+        // Perfect victory bonus (all pieces remaining) - not applicable in resign
+        const perfectBonus = (!isResign && piecesRemaining === totalPieces) ? 100 : 0;
         
-        // Multiplicador para vitórias contra IA
+        // Multiplier for victories against AI
         const aiMultiplier = gameMode === 'pvc' ? 1.5 : 1.0;
         
         const totalScore = Math.floor((baseScore + piecesBonus + perfectBonus) * aiMultiplier);
         
-        console.log(`Score calculation: Base=${baseScore}, PiecesBonus=${piecesBonus}, PerfectBonus=${perfectBonus}, Multiplier=${aiMultiplier}, Total=${totalScore}`);
+        console.log(`Score: Base=${baseScore}, Pieces=${piecesBonus}, Perfect=${perfectBonus}, Multiplier=${aiMultiplier}, Total=${totalScore}`);
         
         return totalScore;
-    }
-
-    /**
-     * Update individual player statistics with scoring
-     * @param {string} playerName - Player name
-     * @param {boolean} isWinner - Whether player won
-     * @param {number} gameDuration - Game duration in seconds
-     * @param {string} gameMode - Game mode
-     * @param {number} score - Game score
-     * @param {number} piecesRemaining - Pieces remaining (for winner)
-     */
-    updatePlayerStats(playerName, isWinner, gameDuration, gameMode, score, piecesRemaining) {
-        if (!this.stats.players[playerName]) {
-            this.stats.players[playerName] = {
-                wins: 0,
-                losses: 0,
-                totalScore: 0,
-                gamesPlayed: 0,
-                lastPlayed: new Date().toISOString()
-            };
-        }
-
-        const player = this.stats.players[playerName];
-        player.gamesPlayed++;
-        
-        if (isWinner) {
-            player.wins++;
-            
-            // Atualizar pontuação
-            player.totalScore += score;
-        } else {
-            player.losses++;
-        }
-
-        player.lastPlayed = new Date().toISOString();
-        
-        console.log(`Updated stats for ${playerName}:`, player);
     }
 
     /**
@@ -217,8 +272,10 @@ class Classification {
      * @param {number} score - Game score
      * @param {number} winnerPiecesRemaining - Pieces remaining for winner
      * @param {string} gameMode - Game mode
+     * @param {boolean} isResign - Whether the game ended by resignation
+     * @param {string} resigningPlayer - Player who resigned
      */
-    saveGameHistory(player1, player2, winner, gameDuration, score, winnerPiecesRemaining, gameMode) {
+    saveGameHistory(player1, player2, winner, gameDuration, score, winnerPiecesRemaining, gameMode, isResign = false, resigningPlayer = null) {
         if (!this.stats.gameHistory) {
             this.stats.gameHistory = [];
         }
@@ -232,11 +289,13 @@ class Classification {
             score: score,
             winnerPiecesRemaining: winnerPiecesRemaining,
             mode: gameMode,
+            isResign: isResign,
+            resigningPlayer: resigningPlayer,
             date: new Date().toISOString(),
             timestamp: Date.now()
         };
         
-        // Manter apenas os últimos 50 jogos no histórico
+        // Keep only the last 50 games in history
         this.stats.gameHistory.unshift(gameRecord);
         if (this.stats.gameHistory.length > 50) {
             this.stats.gameHistory = this.stats.gameHistory.slice(0, 50);
@@ -314,7 +373,7 @@ class Classification {
         }
 
         const rankings = this.getRankings();
-        console.log('Displaying rankings:', rankings);
+        console.log('Current rankings:', rankings);
         
         tbody.innerHTML = '';
 
@@ -360,7 +419,7 @@ class Classification {
         const totalGames = this.stats.totalGames || 0;
         const totalScore = Object.values(this.stats.players).reduce((sum, player) => sum + (player.totalScore || 0), 0);
         
-        // Atualizar apenas os valores, mantendo a estrutura HTML
+        // Update only values, keeping HTML structure
         const statItems = container.querySelectorAll('.stat-value');
         if (statItems.length >= 5) {
             statItems[0].textContent = totalGames.toString();
@@ -370,12 +429,11 @@ class Classification {
             statItems[4].textContent = this.formatDate(this.stats.lastUpdated);
         }
         
-        console.log('Overall stats updated:', {
+        console.log('Overall stats:', {
             totalGames,
             totalPlayers,
             totalWins,
-            totalScore,
-            lastUpdated: this.stats.lastUpdated
+            totalScore
         });
     }
 

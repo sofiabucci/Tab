@@ -375,51 +375,56 @@ class GameBoard {
     resign() {
         if (!this.gameActive) return;
         
+        const resigningPlayer = this.currentPlayer === 'player-1' ? 'Player 1' : 'Player 2';
         const winner = this.currentPlayer === 'player-1' ? 'Player 2' : 'Player 1';
+        
         this.gameActive = false;
-        this.showVictoryModal(winner, true);
+        this.showVictoryModal(winner, true, resigningPlayer);
     }
 
     /**
      * Shows victory modal with winner information
      * @param {string} winner - The winning player
      * @param {boolean} isResign - Whether game ended by resignation
+     * @param {string} resigningPlayer - Player who resigned (only for resign)
      */
-    showVictoryModal(winner, isResign = false) {
+    showVictoryModal(winner, isResign = false, resigningPlayer = null) {
         const modal = document.getElementById('victoryModal');
         const message = document.getElementById('victoryMessage');
         const reason = document.getElementById('victoryReason');
         
         if (modal && message && reason) {
             message.innerHTML = `<strong>${winner} wins!</strong>`;
-            reason.textContent = isResign ? 'Player resigned' : 'All pieces captured';
+            reason.textContent = isResign ? `${resigningPlayer} resigned` : 'All pieces captured';
             modal.classList.remove('hidden');
             
             // Record game result for classification
             if (window.classification && this.gameStartTime) {
                 const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
-                const winnerName = winner === 'Player 1' ? 'Player 1' : (winner === 'Player 2' ? 'Player 2' : winner);
-                const loserName = winner === 'Player 1' ? (this.options.mode === 'pvc' ? 'AI' : 'Player 2') : 'Player 1';
+                
+                // Use consistent names
+                const winnerName = winner; // This should be "Player 1", "Player 2", or "AI"
+                const player2Name = this.options.mode === 'pvc' ? 'AI' : 'Player 2';
                 
                 // Count remaining pieces for winner
                 const winnerPieces = this.content.filter(p => p && p.player === (winner === 'Player 1' ? 'player-1' : 'player-2')).length;
                 
-                console.log('Recording game result for classification:', {
+                console.log('Calling classification.recordGame with:', {
                     winner: winnerName,
-                    loser: loserName,
-                    duration: gameDuration,
-                    piecesRemaining: winnerPieces,
+                    player2: player2Name,
                     mode: this.options.mode
                 });
                 
                 window.classification.recordGame(
-                    'Player 1',
-                    this.options.mode === 'pvc' ? 'AI' : 'Player 2',
-                    winnerName,
+                    'Player 1',     // Always Player 1
+                    player2Name,    // AI or Player 2
+                    winnerName,     // The actual winner
                     gameDuration,
                     winnerPieces,
-                    this.cols, // total pieces
-                    this.options.mode
+                    this.cols,
+                    this.options.mode,
+                    isResign,
+                    resigningPlayer
                 );
             }
             
