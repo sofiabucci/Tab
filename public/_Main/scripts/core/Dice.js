@@ -1,15 +1,8 @@
 /**
- * @file Dice.js
- * @description
- * OOP implementation of the Tâb stick dice as a DOM component.
- * Manages rendering, animation, and events inside its own class scope.
- *
- * This class does not rely on global variables and can be instantiated multiple times.
- * It dispatches `stickRoll` and `stickReset` events to the document for other
- * game modules (like GameBoard) to listen to.
+ * Implementation of the Tâb stick dice as a DOM component.
+ * Manages rendering, animation, and events.
  */
-
-class Dice {
+export class Dice {
   /**
    * @param {string} rollButtonId - ID of the "Roll" button.
    * @param {string} resultContainerId - ID of the container for dice display.

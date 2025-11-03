@@ -1,192 +1,18 @@
-import { PieceState } from './Piece.js';
+/**
+ * @file Main.js
+ * @description
+ * The current OOP focused code structure is nonfunctional.
+ * Because of this, the last working version of these scrips are being used in the index.html file.
+ */
+
+import { Player } from './Player.js';
 import { Piece } from './Piece.js';
-import { PlayerId } from './PLayer.js';
-import { Player } from './PLayer.js';
-
-
-export class Board {
-    static DEFAULT_CONTAINER = 'board-container';
-
-    constructor(id, columns) {
-        /** @type {String} HTML id of parent container */
-        this.parentId = id;
-
-        /** @type {number} Number of columns in the board */
-        this.cols = columns;
-        this.rows = 4;
-
-        /** @type {(Piece | null)[]} */
-        this.content = new Array(this.cols * this.rows).fill(null);
-    }
-
-    getRowFromIndex(index) {
-        return Math.floor(index / this.cols);
-    }
-    getColFromIndex(index) {
-        return index % this.cols;
-    }
-
-    /**
-     * Sets up the initial piece positions
-     */
-    setupPieces() {
-        // Player 2 (top row - linha 0)
-        for (let c = 0; c < this.cols; c++) {
-            this.content[c] = new Piece(PlayerId.P2, c, PieceState.UNMOVED);
-        }
-        // Player 1 (bottom row - linha 3)
-        for (let c = 0; c < this.cols; c++) {
-            this.content[3 * this.cols + c] = new Piece(PlayerId.P1, c, PieceState.UNMOVED);
-        }
-    }
-
-    /**
-     * Initializes the board DOM structure. Calls {@link Board.setupPieces()} to setup tokens.
-     * @param {string} parentId - The container element ID
-     */
-    initDOM(parentId = this.parentId) {
-        const parent = document.getElementById(parentId);
-        parent.innerHTML = '';
-
-        const board = document.createElement('div');
-        board.classList = "board";
-        board.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
-
-        this.setupPieces();
-
-        for (let i = 0; i < this.cols * this.rows; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'board-square';
-            cell.onclick = () => this.handleClick(i);
-
-            // If square contains token 
-            if (this.content[i]) {
-                const token = this.content[i].createElement();
-                cell.appendChild(token);
-            }
-
-            board.appendChild(cell);
-        }
-    }
-
-    /** Get piece at given `index`
-     * @param {number} index
-     */
-    getPieceAt(index) {
-        return this.content[index];
-    }
-
-    /** Set a piece at given `index`
-     * @param {number} index
-     * @param {Piece | null} piece
-     */
-    setPieceAt(index, piece) {
-        if (piece === null) {
-            this.content[index] = null;
-        }
-        else {
-            this.content[index] = new Piece(piece.player, index, piece.state);
-        }
-    }
-
-    findPlayerPieces() {
-        let p1 = new Array();
-        let p2 = new Array();
-
-        this.content.forEach((piece, i) => {
-            if (piece) {
-                if (piece.player === PlayerId.P1) {
-                    p1.push(i);
-                } else if (piece.player === PlayerId.P2) {
-                    p2.push(i);
-                }
-            }
-        });
-
-        return { P1Pieces: p1, P2Pieces: p2 };
-    }
-
-}
-
-export class MovementCalculator {
-    constructor(cols, rows) {
-        this.cols = cols;
-        this.rows = 4;
-
-        /**  @type {Map<number, number[]>} Keys are cell indexes, values are arrays of possible next cell indexes */
-        this.map = MovementCalculator.movementMap(cols, rows);
-    }
-
-    /** Static method that returnsa map indicaintg the index of the next cell(s) on the board create board movement map 
-     * @param {number} rows 
-     * @param {number} cols
-     * @return {Map<number, number[]>} Keys are cell indexes, values are arrays of possible next cell indexes
-    */
-    static movementMap(rows, cols) {
-        let flow = new Map();
-        for (let i = 0; i < cols * rows; i++) {
-            switch (this.getRowFromIndex(i)) {
-                case 0:
-                case 2:
-                    flow.set(i, [i - 1]);
-                    break;
-                case 1:
-                case 3:
-                    flow.set(i, [i + 1]);
-                    break;
-                default:
-                    return null;
-            }
-        }
-
-        flow.set(0, [cols]);
-        flow.set(4 * cols - 1, [3 * cols - 1]);
-
-        flow.set(2 * cols - 1, [3 * cols - 1, cols - 1]);
-        flow.set(2 * cols, [cols, 3 * cols]);
-
-        return flow;
-    }
-
-    /**
-   * Calculates next index after moving `steps` spaces in the snake path.
-   * @param {number} fromIndex - Starting index.
-   * @param {number} steps - Number of moves. Between 0 and 6 inclusive.
-   * @returns {number[]|null} Array of max length 2. Index 0 contains the normal snake path result. Index 1 contains the forked path.
-   */
-    calculateTarget(fromIndex, steps) {
-        if (fromIndex == null || steps < 0 || steps > 6) return null;
-
-        let result = new Array();
-        this._calculateTargetR(fromIndex, steps, result);
-        return result;
-    }
-
-    _calculateTargetR(fromIndex, steps, result) {
-        if (steps === 0) {
-            result.push(fromIndex);
-            return;
-        } else {
-            let arr = this.map.get(fromIndex);
-            arr.forEach(cell => {
-                this._calculateTargetR(cell, steps - 1, result);
-            });
-        }
-    }
-
-}
-
-export class Messager {
-    static MESSAGE_BOX_ID = 'gameMessage';
-
-    static showMessage(text) {
-        const msgEl = document.getElementById(Messager.MESSAGE_BOX_ID);
-        if (msgEl) msgEl.textContent = text;
-    }
-}
+import { Board } from './Board.js';
+import { Dice } from './Dice.js';
+import { Utils } from './Utils.js';
 
 /**
- * Board Manager class for Tâb game
+ * Board Manager class for Tâb game.
  */
 class GameBoard {
 
@@ -212,8 +38,8 @@ class GameBoard {
         /** @type {Board} Board object containing player Pieces*/
         this.board = new Board(id, cols);
 
-        /** @type {MovementCalculator} */
-        this.movementCalculator = new MovementCalculator(this.cols, 4);
+        /** @type {Utils} */
+        this.movementCalculator = new Utils(this.cols, 4);
 
         /** @type {String} Game state*/
         this.gameState = GameBoard.GAME_STATES.IDLE;
@@ -324,7 +150,7 @@ class GameBoard {
         }
 
         // Check first move rule (only with Tâb)
-        if (piece.state === PieceState.UNMOVED && diceValue !== 1) {
+        if (piece.state === Piece.UNMOVED && diceValue !== 1) {
             this.showMessage('First move must be with Tâb (1)');
             return false;
         }
@@ -385,7 +211,7 @@ class GameBoard {
         }
 
         switch (piece.state) {
-            case PieceState.UNMOVED:
+            case Piece.UNMOVED:
                 if (isPromotionMove) {
                     errorMessage.text = 'Invalid move';
                     return false;
@@ -396,7 +222,7 @@ class GameBoard {
                 }
                 break;
 
-            case PieceState.PROMOTED:
+            case Piece.PROMOTED:
                 // Promoted pieces must follow normal flow (targets[0])
                 if (isPromotionMove) {
                     errorMessage.text = 'Promoted pieces cannot revisit the last row';
@@ -404,10 +230,10 @@ class GameBoard {
                 }
                 break;
 
-            case PieceState.MOVED:
+            case Piece.MOVED:
                 if (isPromotionMove) {
                     //Player starting row
-                    const homeRow = (piece.player === PlayerId.P1) ? this.board.rows - 1 : 0;
+                    const homeRow = (piece.player === Player.P1) ? this.board.rows - 1 : 0;
 
                     // Our home row
                     if (homeRow === this.board.getRowFromIndex(to)) {
@@ -429,7 +255,7 @@ class GameBoard {
     // False if there is a friendly piece in player's starting row.
     startingRowIsEmpty(playerId) {
         // Starting row
-        const row = (playerId === PlayerId.P1) ? this.board.rows - 1 : 0;
+        const row = (playerId === Player.P1) ? this.board.rows - 1 : 0;
 
         for (let i = 0; i < this.board.cols; i++) {
             const piece = this.board.getPieceAt(row * this.board.cols + i);
@@ -458,13 +284,13 @@ class GameBoard {
         }
 
         // Mark conversion on first move with Tâb (1)
-        if (piece.state === PieceState.UNMOVED) {
-            piece.state = PieceState.MOVED;
+        if (piece.state === Piece.UNMOVED) {
+            piece.state = Piece.MOVED;
             this.showMessage('Piece activated with Tâb!');
         }
 
         if (targets.length() === 2 && to === targets[1]) {
-            piece.state = PieceState.PROMOTED;
+            piece.state = Piece.PROMOTED;
         }
 
         this.board.setPieceAt(to, piece);
@@ -701,8 +527,8 @@ class GameBoard {
 
         // Count pieces for each player
         const pieces = this.board.findPlayerPieces();
-        const p1Pieces = pieces.P1Pieces.length(); 
-        const p2Pieces = pieces.P2Pieces.length(); 
+        const p1Pieces = pieces.P1Pieces.length();
+        const p2Pieces = pieces.P2Pieces.length();
 
         console.log('Player 1 pieces (total):', p1Pieces);
         console.log('Player 2 pieces (total):', p2Pieces);
@@ -759,7 +585,7 @@ class GameBoard {
      * @param {string} text - Message to display
      */
     showMessage(text) {
-        Messager.showMessage(text);
+        Utils.showMessage(text);
     }
 
     /**

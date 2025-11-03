@@ -1,13 +1,6 @@
-export class PlayerId {
-    static P1 = 'player-1';
-    static P2 = 'player-2';
-
-    static TYPE = {
-        HUMAN: 'human',
-        AI: 'ai'
-    }
-}
-
+/** Player class
+ *  Has function relevant for (soon to be implemented) User authentication and classification.
+ */
 export class Player {
     /**
      * @param {string} id - PlayerId.P1 or PlayerId.P2
@@ -15,8 +8,8 @@ export class Player {
      * @param {string} password - Password value
      * @param {string} type - PlayerType value
      */
-    constructor(id, name, password, type = PlayerId.TYPE.HUMAN) {
-        if (!PlayerId.isValid(id)) {
+    constructor(id, name, password, type = Player.TYPE.HUMAN) {
+        if (!Player.isValid(id)) {
             throw new Error(`Invalid player ID: ${id}`);
         }
         if (!PlayerType.isValid(type)) {
@@ -32,7 +25,7 @@ export class Player {
         // FIXME: password needs to be secured
         /** @type {string} User chosen password */
         this.password = password;
-        
+
         /** @type {string} A PlayerType value */
         this.type = type;
 
@@ -41,6 +34,17 @@ export class Player {
 
         /** @type {boolean} Whether player is ready to start */
         this.ready = false;
+    }
+
+    /** Player ID constant */
+    static P1 = 'player-1';
+    /** Player ID constant */
+    static P2 = 'player-2';
+
+    /** Constant containing player types */
+    static TYPE = {
+        HUMAN: 'human',
+        AI: 'ai'
     }
 
     /**
@@ -56,11 +60,14 @@ export class Player {
      * @returns {boolean} True if player is AI
      */
     isAI() {
-        return this.type !== PlayerId.TYPE.HUMAN;
+        return this.type !== Player.TYPE.HUMAN;
     }
 
 }
 
+/** PlayerAI class extends Player class. Serves as an AI controled player.
+ *  (Not yet implemented).
+ */
 export class PlayerAI extends Player {
     /**
      * @param {string} id - PlayerId.P1 or PlayerId.P2  
@@ -70,16 +77,16 @@ export class PlayerAI extends Player {
     constructor(id, difficulty = 'medium', name = null) {
         const aiType = `ai-${difficulty}`;
         const aiName = name || `AI (${difficulty})`;
-        
+
         super(id, aiName, '', aiType);
-        
+
         /** @type {string} AI difficulty level */
         this.difficulty = difficulty;
     }
 
     static DIFFICULTY = {
-        EASY:   'easy',
+        EASY: 'easy',
         MEDIUM: 'medium',
-        HARD:   'hard'
+        HARD: 'hard'
     }
 }
