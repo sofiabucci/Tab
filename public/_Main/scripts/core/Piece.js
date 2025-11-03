@@ -14,7 +14,7 @@ export class Piece {
    * @param {String} state - state of this piece: 'unmoved', 'moved' or 'promoted'
    */
     constructor(playerId, position, state = PieceState.UNMOVED) {
-        /** @type {String} player to which this piece belongs */
+        /** @type {String} PlayerId - Indicates player to which this piece belongs */
         this.player = playerId;
         /** @type {number} board.cells index showing the position of this piece */
         this.position = position;
