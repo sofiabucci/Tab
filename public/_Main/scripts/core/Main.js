@@ -1,21 +1,35 @@
-//@ts-check
-
-/**
- * @file Main.js
- * @description
- * The current OOP focused code structure is nonfunctional.
- * Because of this, the last working version of these scrips are being used in the index.html file.
- */
-
 // import { Dice } from './Dice.js';
 import { Player } from './Player.js';
 import { Piece } from './Piece.js';
 import { Board } from './Board.js';
 import { MovementCalculator } from './MovementCalculator.js';
+import { MessageService } from './MessageService.js';
 
 /**
- * Board Manager class for Tâb game.
- */
+ * GameBoard - Manager class for Tâb game.
+ * High-level controller for a single board game instance. Manages board state, piece movement,
+ * dice interactions, turn flow (including AI turns), UI rendering, and end-of-game handling.
+*
+* The class expects a Board implementation, MovementCalculator, Piece and Player enums/objects,
+* and several optional global/window helpers (e.g. stick-dice helpers, AI helpers, classification).
+*
+* Global/window dependencies and interactions:
+*   - Reads/writes window.lastRoll (object: { value: number, repeats?: boolean }).
+*   - Optionally calls window.enableStickRolling(), window.resetStickDice(), window.rollStickDice(), window.updateRollButtonState().
+*   - Optionally uses window.IA for AI functions (fromGameBoard, chooseMoveAI, moveToIndices).
+*   - Optionally calls window.classification.recordGame(...) to persist game results.
+ *   - Dispatches a custom 'turnChanged' DOM event on player change.
+ * 
+ * Events:
+ *   - Dispatches CustomEvent 'turnChanged' when player turn is switched.
+*
+* Notes & Side Effects:
+*   - Many methods rely on global/window helpers and on the concrete implementations of Board, MovementCalculator,
+*     Piece and Player. The class performs DOM mutations (showing/hiding modals, updating elements with ids like 'victoryModal').
+*   - Methods such as movePiece assume the caller has already validated the move. isValidMove is provided to validate moves.
+*   - The class logs diagnostic information (console.log / console.error) during end-of-game checking and AI errors.
+* @class
+*/
 class GameBoard {
 
     static GAME_STATES = {
@@ -31,7 +45,7 @@ class GameBoard {
      * @param {Object} options - Game configuration options
      * @param {string} options.mode - Game mode ('pvp', 'pvc', 'pvpo')
      * @param {string} options.difficulty - AI difficulty ('easy', 'medium', 'hard')
-     * @param {string} options.firstPlayer - Starting player ('player-1' or 'player-2')
+     * @param {string} options.firstPlayer - Starting player ({@link Player.P1} or {@link Player.P2})
      */
     constructor(id, cols, options = {}) {
         /** @type {number} */
@@ -47,13 +61,13 @@ class GameBoard {
         this.gameState = GameBoard.GAME_STATES.IDLE;
 
         /** @type {number|null} Board index of selected token*/
-        this.selectedToken = null;
+        this.selectedTokenIndex = null;
 
         /** @type {Object} */
         this.options = {
             mode: options.mode || 'pvp',
             difficulty: options.difficulty || 'medium',
-            firstPlayer: options.firstPlayer || 'player-1'
+            firstPlayer: options.firstPlayer || Player.P1
         };
 
         /** @type {string} */
@@ -61,6 +75,8 @@ class GameBoard {
 
         /** @type {boolean} */
         this.gameActive = true;
+
+        this.gameStartTime = Date.now();
 
         /** @type {boolean} */
         this.diceRolled = false;
@@ -81,16 +97,16 @@ class GameBoard {
     }
 
     /**
-     * @returns {number | null} value of the last dice roll
+     * @returns {number} - Returns last roll value (from window.lastRoll) or null if none.
      */
     getLastRoll() {
         if (window.lastRoll && window.lastRoll.value) return window.lastRoll.value;
 
-        return null;
+        console.error("Could not get LastRoll");
     }
 
     /**
-     * @returns {boolean} value of the last dice roll allows for player to play again.
+     * @returns {boolean} - True if the last roll value grants an extra turn (e.g. values like 1, 4, 6).
      */
     canRepeat() {
         const value = this.getLastRoll();
@@ -101,8 +117,9 @@ class GameBoard {
     }
 
     /**
-     * Handles click events on board squares
-     * @param {number} i - Clicked square index
+     * Handles UI clicks on board squares. Enforces gameActive, diceRolled and turn ownership checks,
+     * and routes to token selection (GAME_STATES.IDLE) or target selection (GAME_STATES.TOKEN_SELECTED).
+     * @param {number} i - Index of the clicked board square.
      */
     handleClick(i) {
         if (!this.gameActive) {
@@ -127,21 +144,30 @@ class GameBoard {
         switch (this.gameState) {
             // Choose token
             case GameBoard.GAME_STATES.IDLE:
-                handleTokenSelect(i, diceValue);
+                this.handleTokenSelect(i, diceValue);
                 break;
             // Choose target once token is selected
             case GameBoard.GAME_STATES.TOKEN_SELECTED:
-                handleTargetSelect(i, diceValue);
+                this.handleTargetSelect(i, diceValue);
                 break;
         }
 
     }
 
+    /**
+     * Resets interaction state to idle and clears selection.
+     */
     resetGameState() {
         this.gameState = GameBoard.GAME_STATES.IDLE;
-        this.selectedToken = null;
+        this.selectedTokenIndex = null;
     }
 
+    /**
+     * Selects a piece for movement if owned by current player and respects first-move rules.
+     * @param {number} i - Index of selected token.
+     * @param {number} diceValue - Current dice value.
+     * @returns {boolean} - True on successful selection, false otherwise.
+     */
     handleTokenSelect(i, diceValue) {
         const piece = this.board.getPieceAt(i);
 
@@ -158,12 +184,18 @@ class GameBoard {
 
         // Valid token selected
         this.gameState = GameBoard.GAME_STATES.TOKEN_SELECTED;
-        this.selectedToken = piece;
+        this.selectedTokenIndex = i;
         return true;
     }
-
+    /**
+     * Attempts to move previously selected piece to a target. Validates via isValidMove and
+     * calls movePiece on success. Deselects and resets state on invalid attempts.
+     * @param {number} targetIndex - Target square index to move to.
+     * @param {number} diceValue - Current dice value.
+     * @returns {boolean} - True if move performed, false otherwise.
+     */
     handleTargetSelect(targetIndex, diceValue) {
-        if (!this.selectedToken || this.selectedToken === targetIndex) {
+        if (!this.selectedTokenIndex || this.selectedTokenIndex === targetIndex) {
             // Deselect
             this.resetGameState();
             return false;
@@ -171,9 +203,9 @@ class GameBoard {
 
         // Validate clicked index
         let errorMessage = { text: '' };
-        if (this.isValidMove(this.selectedToken, targetIndex, diceValue, errorMessage)) {
+        if (this.isValidMove(this.selectedTokenIndex, targetIndex, diceValue, errorMessage)) {
             this.gameState = GameBoard.GAME_STATES.TARGET_SELECTED;
-            return this.movePiece(this.selectedToken, targetIndex);
+            return this.movePiece(this.selectedTokenIndex, targetIndex);
         }
 
         this.showMessage(errorMessage.text);
@@ -182,14 +214,14 @@ class GameBoard {
     }
 
     /**
-     * Determines whether a piece at `fromIndex` can legally move to `toIndex` using `diceValue` steps.
-     * If the move is invalid, sets an error message in `errorMessage.text`.
+     * Validates a proposed move according to movementCalculator targets, piece states (UNMOVED, MOVED, PROMOTED),
+     * promotion rules, collisions with friendly pieces, and starting/ending row restrictions.
+     * @param {number} from - Source index.
+     * @param {number} to - Destination index.
+     * @param {number} diceValue - Dice value used for the attempted move.
+     * @param {{ text: string }} [errorMessage={ text: '' }] - Optional object to receive an error message when invalid.
+     * @returns {boolean} - True if the move is legal; false otherwise (populates errorMessage.text).
      *
-     * @param {number} from - The index of the piece's current position on the board.
-     * @param {number} to - The index of the intended destination on the board.
-     * @param {number} diceValue - The number of steps to move, typically determined by a dice roll.
-     * @param {{ text: string }} [errorMessage={ text: '' }] - An object to hold the error message if the move is invalid.
-     * @returns {boolean} True if the move is valid; false otherwise.
      */
     isValidMove(from, to, diceValue, errorMessage = { text: '' }) {
         const piece = this.board.getPieceAt(from);
@@ -254,6 +286,10 @@ class GameBoard {
     }
 
     // False if there is a friendly piece in player's starting row.
+    /**
+     * @param {string} playerId - Player id to check (Player.P1|Player.P2).
+     * @returns {boolean} - Returns false if a friendly piece exists on that player's starting row.
+     */
     startingRowIsEmpty(playerId) {
         // Starting row
         const row = (playerId === Player.P1) ? this.board.rows - 1 : 0;
@@ -271,13 +307,22 @@ class GameBoard {
 
     /**
      * Moves a piece from one position to another. Does not validate.
-     * @param {number} from - Source position index
-     * @param {number} to - Target position index
+     * @param {number} from - Source index.
+     * @param {number} to - Destination index.
+     * @param {number} [diceValue] - Optional diceValue, defaults to getLastRoll().
+     * Executes movement without re-validating: handles capture messages, state transitions (UNMOVED->MOVED, PROMOTED),
+     * sets pieces on board array, renders, checks for game end and ends the turn. Note: does not throw on invalid data.
+     *
      */
     movePiece(from, to, diceValue = this.getLastRoll()) {
         const piece = this.board.getPieceAt(from);
         const pieceAtTarget = this.board.getPieceAt(to);
-        const targets = this.movementCalculator.calculateTarget(from, to, diceValue);
+        const targets = this.movementCalculator.calculateTarget(from, diceValue);
+
+        if(!piece || !targets) {
+            console.error("Invalid movePiece call. Expected a valid move.")
+            return
+        };
 
         // Capture logic
         if (pieceAtTarget) {
@@ -290,7 +335,7 @@ class GameBoard {
             this.showMessage('Piece activated with Tâb!');
         }
 
-        if (targets.length() === 2 && to === targets[1]) {
+        if (targets.length === 2 && to === targets[1]) {
             piece.state = Piece.PROMOTED;
         }
 
@@ -334,7 +379,7 @@ class GameBoard {
             window.canRollAgain = false;
 
             // Switch players
-            this.currentPlayer = this.currentPlayer === 'player-1' ? 'player-2' : 'player-1';
+            this.currentPlayer = this.currentPlayer === Player.P1 ? Player.P2 : Player.P1;
 
             // Reset and enable dice for next player
             if (window.resetStickDice) {
@@ -374,7 +419,7 @@ class GameBoard {
         if (!window.IA || !this.gameActive || !window.lastRoll) return;
 
         try {
-            const state = window.IA.fromGameBoard(this.content, this.cols, this.currentPlayer);
+            const state = window.IA.fromGameBoard(this.board.content, this.cols, this.currentPlayer);
             const move = await window.IA.chooseMoveAI(state, window.lastRoll.value, this.options.difficulty);
 
             if (move && move.type !== 'PASS') {
@@ -416,22 +461,24 @@ class GameBoard {
     /**
      * Checks if current player has any valid moves
      * @returns {boolean} - True if valid moves exist
+     * @see {@link GameBoard.isValidMove}
      */
     checkValidMoves() {
         if (!window.lastRoll) return false;
 
-        for (let i = 0; i < this.content.length; i++) {
-            const piece = this.content[i];
+        for (let i = 0; i < this.board.content.length; i++) {
+            const piece = this.board.content[i];
             if (!piece || piece.player !== this.currentPlayer) continue;
 
             // Check first move rule (only with Tâb)
             if (!piece.hasConverted && window.lastRoll.value !== 1) continue;
 
-            const target = this.calculateMove(i, window.lastRoll.value);
+            const temp = this.movementCalculator.calculateTarget(i, window.lastRoll.value);
+            const target = temp? temp[0] : null;
             if (!target) continue;
 
             // Check if destination doesn't have same player's piece
-            if (!this.content[target] || this.content[target].player !== piece.player) {
+            if (!this.board.content[target] || this.board.content[target].player !== piece.player) {
                 return true;
             }
         }
@@ -440,23 +487,25 @@ class GameBoard {
     }
 
     /**
-     * Resigns the current game
+     * Ends the game immediately with the current player resigning. Shows victory modal and marks the game inactive.
      */
     resign() {
         if (!this.gameActive) return;
 
-        const resigningPlayer = this.currentPlayer === 'player-1' ? 'Player 1' : 'Player 2';
-        const winner = this.currentPlayer === 'player-1' ? 'Player 2' : 'Player 1';
+        const resigningPlayer = this.currentPlayer === Player.P1 ? 'Player 1' : 'Player 2';
+        const winner = this.currentPlayer === Player.P1 ? 'Player 2' : 'Player 1';
 
         this.gameActive = false;
         this.showVictoryModal(winner, true, resigningPlayer);
     }
 
+    // TODO: Integrate Player class
     /**
-     * Shows victory modal with winner information
-     * @param {string} winner - The winning player
-     * @param {boolean} isResign - Whether game ended by resignation
-     * @param {string} resigningPlayer - Player who resigned (only for resign)
+     * Presents the modal, records the game via window.classification.recordGame when available, and wires modal actions.
+     * @param {string} winner - Human-readable winner label ("Player 1", "Player 2", or "AI").
+     * @param {boolean} [isResign=false] - True when triggered by resignation.
+     * @param {string|null} [resigningPlayer=null] - Name/id of the resigning player when applicable.
+     *
      */
     showVictoryModal(winner, isResign = false, resigningPlayer = null) {
         const modal = document.getElementById('victoryModal');
@@ -477,7 +526,7 @@ class GameBoard {
                 const player2Name = this.options.mode === 'pvc' ? 'AI' : 'Player 2';
 
                 // Count remaining pieces for winner
-                const winnerPieces = this.content.filter(p => p && p.player === (winner === 'Player 1' ? 'player-1' : 'player-2')).length;
+                const winnerPieces = this.board.content.filter(p => p && p.player === (winner === 'Player 1' ? Player.P1 : Player.P2)).length;
 
                 console.log('Calling classification.recordGame with:', {
                     winner: winnerName,
@@ -511,7 +560,7 @@ class GameBoard {
     }
 
     /**
-     * Shows the game setup modal
+     * Reveals the setup modal UI allowing players to configure/start a new game.
      */
     showSetupModal() {
         const setupModal = document.getElementById('setupModal');
@@ -521,15 +570,15 @@ class GameBoard {
     }
 
     /**
-     * Checks if game has ended and shows victory modal
-     */
+    * @returns {boolean} - Evaluates whether either player has zero remaining pieces and invokes showVictoryModal when applicable.
+    */
     checkGameEnd() {
-        if (!this.gameActive) return;
+        if (!this.gameActive) return true;
 
         // Count pieces for each player
-        const pieces = this.board.findPlayerPieces();
-        const p1Pieces = pieces.P1Pieces.length();
-        const p2Pieces = pieces.P2Pieces.length();
+        const pieceLists = this.board.findPlayerPieces();
+        const p1Pieces = pieceLists.P1Pieces.length();
+        const p2Pieces = pieceLists.P2Pieces.length();
 
         console.log('Player 1 pieces (total):', p1Pieces);
         console.log('Player 2 pieces (total):', p2Pieces);
@@ -551,7 +600,7 @@ class GameBoard {
     }
 
     /**
-     * Renders the current game state to the DOM
+    * Re-renders the board DOM (pieces), updates user-facing messages and dice button states. Uses board.getPieceAt and piece.createElement.
      */
     render() {
         document.querySelectorAll('.board-square').forEach((cell, i) => {
@@ -566,12 +615,12 @@ class GameBoard {
 
         // Update turn message
         let turnMsg;
-        if (this.options.mode === 'pvc' && this.currentPlayer === 'player-2') {
+        if (this.options.mode === 'pvc' && this.currentPlayer === Player.P2) {
             turnMsg = "AI's turn - Rolling...";
         } else if (this.diceRolled) {
-            turnMsg = `Player ${this.currentPlayer === 'player-1' ? '1' : '2'} - Make your move!`;
+            turnMsg = `Player ${this.currentPlayer === Player.P1 ? '1' : '2'} - Make your move!`;
         } else {
-            turnMsg = `Player ${this.currentPlayer === 'player-1' ? '1' : '2'} - Roll dice!`;
+            turnMsg = `Player ${this.currentPlayer === Player.P1 ? '1' : '2'} - Roll dice!`;
         }
         this.showMessage(turnMsg);
 
@@ -582,11 +631,12 @@ class GameBoard {
     }
 
     /**
-     * Shows message in the game message box
-     * @param {string} text - Message to display
+    * @method showMessage
+    * @param {string} text - Synchronously displays a message to the player via {@link MessageService.showMessage}.
+    * 
      */
     showMessage(text) {
-        MovementCalculator.showMessage(text);
+        MessageService.showMessage(text);
     }
 
     /**
@@ -594,12 +644,13 @@ class GameBoard {
      * @returns {boolean} - True if AI's turn
      */
     isAITurn() {
-        return this.options.mode === 'pvc' && this.currentPlayer === 'player-2';
+        return this.options.mode === 'pvc' && this.currentPlayer === Player.P2;
     }
 
     /**
      * Handles stick dice roll events
-     * @param {Object} roll - Roll result object
+     * @param {{ value: number, repeats?: boolean }} roll - Roll result object (value and optional repeats flag).
+     * Stores the roll on window.lastRoll, marks diceRolled, shows human-readable roll message, triggers AI move if appropriate.
      */
     handleStickRoll(roll) {
         window.lastRoll = roll;

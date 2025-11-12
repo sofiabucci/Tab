@@ -4,6 +4,8 @@
  * Provides AI opponent with configurable difficulty levels
  */
 
+import { Piece } from "../_Main/scripts/core/Piece";
+
 /**
  * AI system for Tâb game
  * @namespace
@@ -17,7 +19,7 @@ window.IA = {
     
     /**
      * Convert game board state to AI-readable format
-     * @param {Array} content - Board content array
+     * @param {Piece[]} content - Board content array
      * @param {number} cols - Number of columns
      * @param {string} toMove - Current player
      * @returns {Object} - AI game state
@@ -51,7 +53,7 @@ window.IA = {
 
     /**
      * Choose AI move based on difficulty
-     * @param {Object} state - Game state
+     * @param {{board:Object, toMove: string, cols: number}} state - Game state
      * @param {number} diceValue - Dice roll value
      * @param {string} difficulty - AI difficulty level
      * @returns {Promise<Object>} - Selected move
@@ -80,7 +82,7 @@ window.IA = {
 
     /**
      * Generate all possible moves for current state
-     * @param {Object} state - Game state
+     * @param {{board:Object[][], toMove: string, cols: number}} state - Game state
      * @param {number} diceValue - Dice roll value
      * @returns {Array} - Array of possible moves
      */
@@ -113,7 +115,7 @@ window.IA = {
 
     /**
      * Calculate target position for a move
-     * @param {Object} state - Game state
+     * @param {{board:Object[][], toMove: string, cols: number}} state - Game state
      * @param {number} fromRow - Starting row
      * @param {number} fromCol - Starting column
      * @param {number} steps - Number of steps to move
@@ -150,7 +152,7 @@ window.IA = {
 
     /**
      * Validate if move is legal
-     * @param {Object} state - Game state
+     * @param {{board:Object[][], toMove: string, cols: number}} state - Game state
      * @param {Object} piece - Moving piece
      * @param {Object} target - Target position
      * @returns {boolean} - True if move is valid
@@ -193,7 +195,7 @@ window.IA = {
 
     /**
      * Choose best move based on scoring (medium/hard difficulty)
-     * @param {Object} state - Game state
+     * @param {{board:Object[][], toMove: string, cols: number}} state - Game state
      * @param {Array} moves - Array of possible moves
      * @param {number} diceValue - Dice roll value
      * @param {string} difficulty - AI difficulty level
@@ -217,7 +219,7 @@ window.IA = {
 
     /**
      * Evaluate move score based on strategic factors
-     * @param {Object} state - Game state
+     * @param {{board:Object[][], toMove: string, cols: number}} state - Game state
      * @param {Object} move - Move to evaluate
      * @param {string} difficulty - AI difficulty level
      * @returns {number} - Move score

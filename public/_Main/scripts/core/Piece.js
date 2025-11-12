@@ -26,6 +26,13 @@ export class Piece {
         if (this.state === Piece.UNMOVED) this.state = Piece.MOVED;
     }
 
+    hasConverted() {
+        return !(this.state === Piece.UNMOVED);
+    }
+    hasEnteredOpponentHome(){
+        return this.state === Piece.PROMOTED;
+    }
+
     promote() {
         this.state = Piece.PROMOTED;
     }

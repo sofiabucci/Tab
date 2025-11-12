@@ -70,9 +70,10 @@ export class Board {
     initDOM(onCellClick, parentId = this.parentId) {
         const parent = document.getElementById(parentId);
         if(!parent) {
-            throw new Error(`Could not find parent HTML id=${parentId}`);
+            console.error(`Could not find parent HTML id=${parentId}`);
         }
         
+        // @ts-ignore
         parent.innerHTML = '';
 
         const board = document.createElement('div');

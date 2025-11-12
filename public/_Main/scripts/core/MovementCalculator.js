@@ -37,7 +37,7 @@ export class MovementCalculator {
                     flow.set(i, [i + 1]);
                     break;
                 default:
-                    throw new Error("Could not build movement map");
+                    console.error("Could not build movement map");
             }
         }
 
@@ -78,8 +78,11 @@ export class MovementCalculator {
         } else {
             let arr = this.map.get(fromIndex);
             
-            if(!arr)throw new Error(`Could not find index ${fromIndex} in map ${JSON.stringify(this.map)} `);
+            if(!arr){
+                console.error(`Could not find index ${fromIndex} in map ${JSON.stringify(this.map)} `);
+            } 
             
+            // @ts-ignore
             arr.forEach(cell => {
                 this.#calculateTargetR(cell, steps - 1, result);
             });
