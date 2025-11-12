@@ -1,3 +1,4 @@
+//@ts-check
 /** Player class
  *  Has function relevant for (soon to be implemented) User authentication and classification.
  */
@@ -9,10 +10,10 @@ export class Player {
      * @param {string} type - PlayerType value
      */
     constructor(id, name, password, type = Player.TYPE.HUMAN) {
-        if (!Player.isValid(id)) {
+        if (!Player.isValidId(id)) {
             throw new Error(`Invalid player ID: ${id}`);
         }
-        if (!PlayerType.isValid(type)) {
+        if (!Player.isValidType(type)) {
             throw new Error(`Invalid player type: ${type}`);
         }
 
@@ -41,10 +42,28 @@ export class Player {
     /** Player ID constant */
     static P2 = 'player-2';
 
+    /**
+     * Check if the given string is a valid player ID ({@link Player.P1} or {@link Player.P2})
+     * @param {String} playerId
+     * @returns {boolean}
+     */
+    static isValidId(playerId){
+        return [this.P1, this.P2].includes(playerId);
+    }
+
     /** Constant containing player types */
     static TYPE = {
         HUMAN: 'human',
         AI: 'ai'
+    }
+
+    /**
+     * Checks if a given string is a valid {@link Player.TYPE}
+     * @param {string} type - Type string to check
+     * @returns {boolean} True if type is valid
+     */
+    static isValidType(type) {
+        return Object.values(Player.TYPE).includes(type);
     }
 
     /**
@@ -63,30 +82,4 @@ export class Player {
         return this.type !== Player.TYPE.HUMAN;
     }
 
-}
-
-/** PlayerAI class extends Player class. Serves as an AI controled player.
- *  (Not yet implemented).
- */
-export class PlayerAI extends Player {
-    /**
-     * @param {string} id - PlayerId.P1 or PlayerId.P2  
-     * @param {string} difficulty - 'easy', 'medium', 'hard'
-     * @param {string} name - Optional AI name
-     */
-    constructor(id, difficulty = 'medium', name = null) {
-        const aiType = `ai-${difficulty}`;
-        const aiName = name || `AI (${difficulty})`;
-
-        super(id, aiName, '', aiType);
-
-        /** @type {string} AI difficulty level */
-        this.difficulty = difficulty;
-    }
-
-    static DIFFICULTY = {
-        EASY: 'easy',
-        MEDIUM: 'medium',
-        HARD: 'hard'
-    }
 }

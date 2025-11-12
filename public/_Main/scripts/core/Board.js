@@ -1,3 +1,5 @@
+//@ts-check
+
 import { Piece } from './Piece.js';
 import { Player } from './Player.js';
 
@@ -9,21 +11,39 @@ import { Player } from './Player.js';
 export class Board {
     static DEFAULT_CONTAINER = 'board-container';
 
+    /**
+     * @param {String} id - HTML id of parent container
+     * @param {number} columns - Number of columns in the board 
+     */
     constructor(id, columns) {
         /** @type {String} HTML id of parent container */
         this.parentId = id;
 
+        if (document.getElementById(id) === null) {
+            throw console.error(id + " HTML id of Board container was not found");
+        }
+        
+
         /** @type {number} Number of columns in the board */
         this.cols = columns;
+        /** @type {number} Number of rows in the board. Default is 4 */
         this.rows = 4;
 
         /** @type {(Piece | null)[]} */
         this.content = new Array(this.cols * this.rows).fill(null);
     }
 
+    /**
+     * @param {number} index - board cell index
+     * @returns {number} row number of the given index. (0 based)
+     */
     getRowFromIndex(index) {
         return Math.floor(index / this.cols);
     }
+    /**
+     * @param {number} index - board cell index
+     * @returns {number} column number of the given index. (0 based)
+     */
     getColFromIndex(index) {
         return index % this.cols;
     }
@@ -44,10 +64,15 @@ export class Board {
 
     /**
      * Initializes the board DOM structure. Calls {@link Board.setupPieces()} to setup tokens.
+     * @param {Function} onCellClick - Callback function for board cell clicks
      * @param {string} parentId - The container element ID
      */
-    initDOM(parentId = this.parentId) {
+    initDOM(onCellClick, parentId = this.parentId) {
         const parent = document.getElementById(parentId);
+        if(!parent) {
+            throw new Error(`Could not find parent HTML id=${parentId}`);
+        }
+        
         parent.innerHTML = '';
 
         const board = document.createElement('div');
@@ -59,10 +84,11 @@ export class Board {
         for (let i = 0; i < this.cols * this.rows; i++) {
             const cell = document.createElement('div');
             cell.className = 'board-square';
-            cell.onclick = () => this.handleClick(i);
+            cell.onclick = () => onCellClick(i);
 
             // If square contains token 
             if (this.content[i]) {
+                // @ts-ignore
                 const token = this.content[i].createElement();
                 cell.appendChild(token);
             }
@@ -91,8 +117,13 @@ export class Board {
         }
     }
 
+    /** Finds player tokens.
+     * @returns { {P1Pieces: number[],P2Pieces: number[]} } List of indexes showing the locations of the tokens of each player.
+     */
     findPlayerPieces() {
+        /** @type { number[] } */
         let p1 = [];
+        /** @type { number[] } */
         let p2 = [];
 
         this.content.forEach((piece, i) => {

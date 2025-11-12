@@ -1,3 +1,5 @@
+//@ts-check
+
 /**
  * @file Main.js
  * @description
@@ -5,11 +7,11 @@
  * Because of this, the last working version of these scrips are being used in the index.html file.
  */
 
+// import { Dice } from './Dice.js';
 import { Player } from './Player.js';
 import { Piece } from './Piece.js';
 import { Board } from './Board.js';
-import { Dice } from './Dice.js';
-import { Utils } from './Utils.js';
+import { MovementCalculator } from './MovementCalculator.js';
 
 /**
  * Board Manager class for Tâb game.
@@ -33,18 +35,18 @@ class GameBoard {
      */
     constructor(id, cols, options = {}) {
         /** @type {number} */
-        this.cols = parseInt(cols) || 9;
+        this.cols = cols || 9;
 
         /** @type {Board} Board object containing player Pieces*/
         this.board = new Board(id, cols);
 
-        /** @type {Utils} */
-        this.movementCalculator = new Utils(this.cols, 4);
+        /** @type {MovementCalculator} */
+        this.movementCalculator = new MovementCalculator(4, this.cols);
 
         /** @type {String} Game state*/
         this.gameState = GameBoard.GAME_STATES.IDLE;
 
-        /** @type {number} Board index of selected token*/
+        /** @type {number|null} Board index of selected token*/
         this.selectedToken = null;
 
         /** @type {Object} */
@@ -55,7 +57,7 @@ class GameBoard {
         };
 
         /** @type {string} */
-        this.currentPlayer = this.options.firstPlayer;
+        this.currentPlayer = this.options.firstPlayer || Player.P1;
 
         /** @type {boolean} */
         this.gameActive = true;
@@ -63,13 +65,12 @@ class GameBoard {
         /** @type {boolean} */
         this.diceRolled = false;
 
-        this.board.initDOM();
+        this.board.initDOM(this.handleClick);
         this.render();
 
         // Initialize dice rolling control
         if (window.enableStickRolling) {
             const isHumanTurn = !this.isAITurn();
-            window.isPlayerTurn = isHumanTurn;
             window.enableStickRolling();
         }
 
@@ -585,7 +586,7 @@ class GameBoard {
      * @param {string} text - Message to display
      */
     showMessage(text) {
-        Utils.showMessage(text);
+        MovementCalculator.showMessage(text);
     }
 
     /**

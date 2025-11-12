@@ -1,1 +1,13 @@
-public/*/sandbox/*
+# Build artifacts
+*.zip
+*.tar
+*.gz
+
+# Development files
+sandbox/
+temp/
+tmp/
+
+# Public directory specific
+public/**/*.zip
+public/**/sandbox/

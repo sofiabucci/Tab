@@ -1,3 +1,4 @@
+//@ts-check
 /** Player tokens class.
  *  Has functions for rendering, and defines constants for token state management.
  */
@@ -7,13 +8,13 @@ export class Piece {
    * @param {number} position - index showing the position of this piece.
    * @param {String} state - state of this piece: 'unmoved', 'moved' or 'promoted'
    */
-    constructor(playerId, position, state = Piece.UNMOVED) {
+    constructor(player, position, state = Piece.UNMOVED) {
         /** @type {String} PlayerId - Indicates player to which this piece belongs */
-        this.player = playerId;
+        this.player = player;
         /** @type {number} board.cells index showing the position of this piece */
         this.position = position;
         /** @type {String} one of ['unmoved', 'moved', 'promoted'] */
-        this.state = state
+        this.state = state;
     }
 
     // Token states
@@ -35,7 +36,7 @@ export class Piece {
 
     createElement() {
         const el = document.createElement('div');
-        el.className = `board-token ${this.playerId} ${this.state}`;
+        el.className = `board-token ${this.player} ${this.state}`;
         el.dataset.player = this.player;
         el.dataset.state = this.state;
 

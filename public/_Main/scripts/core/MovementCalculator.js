@@ -1,41 +1,33 @@
+//@ts-check
 /**
  * Utility class for Tâb game board operations. 
- * Has functions for messaging and movement logic.
+ * Handles board movement logic and path calculation for Tâb game
  * @class
  */
-export class Utils {
-    constructor(cols, rows) {
+export class MovementCalculator {
+    /**
+     * @param {number} rows - number of rows in the board
+     * @param {number} cols - number of columns in the board
+     */
+    constructor(rows, cols) {
         this.cols = cols;
         this.rows = 4;
 
         /**  @type {Map<number, number[]>} Keys are cell indexes, values are arrays of possible next cell indexes */
-        this.map = Utils.movementMap(cols, rows);
+        this.map = MovementCalculator.movementMap(cols, rows);
     }
 
-    /** 
-     * Element ID constant for the game message display
-     * @constant {string}
-     */
-    static MESSAGE_BOX_ID = 'gameMessage';
-
-     /**
-     * Displays a message in the game message box
-     * @param {string} text - Message text to display
-     */
-    static showMessage(text) {
-        const msgEl = document.getElementById(Messager.MESSAGE_BOX_ID);
-        if (msgEl) msgEl.textContent = text;
-    }
-
-    /** Static method that returnsa map indicaintg the index of the next cell(s) on the board create board movement map 
+    /** Static method that returns a map indicaintg the index of the next cell(s) on the board create board movement map 
      * @param {number} rows 
      * @param {number} cols
      * @return {Map<number, number[]>} Keys are cell indexes, values are arrays of possible next cell indexes
+     * 
+     * @throws {Error} if there are more than 4 rows.
     */
     static movementMap(rows, cols) {
         let flow = new Map();
         for (let i = 0; i < cols * rows; i++) {
-            switch (this.getRowFromIndex(i)) {
+            switch (Math.floor(i / cols)) {
                 case 0:
                 case 2:
                     flow.set(i, [i - 1]);
@@ -45,7 +37,7 @@ export class Utils {
                     flow.set(i, [i + 1]);
                     break;
                 default:
-                    return null;
+                    throw new Error("Could not build movement map");
             }
         }
 
@@ -72,12 +64,22 @@ export class Utils {
         return result;
     }
 
+    /** 
+     * Helper method for {@link MovementCalculator.calculateTarget()}
+     * @param {number} fromIndex
+     * @param {number} steps 
+     * @param {number[]} result - Output storage
+     *  
+    */
     #calculateTargetR(fromIndex, steps, result) {
         if (steps === 0) {
             result.push(fromIndex);
             return;
         } else {
             let arr = this.map.get(fromIndex);
+            
+            if(!arr)throw new Error(`Could not find index ${fromIndex} in map ${JSON.stringify(this.map)} `);
+            
             arr.forEach(cell => {
                 this.#calculateTargetR(cell, steps - 1, result);
             });
