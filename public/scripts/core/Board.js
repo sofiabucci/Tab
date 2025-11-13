@@ -9,8 +9,12 @@ import { Player } from './Player.js';
  * @class
 */
 export class Board {
+    /** @type {string} Default Id of board container. "board-container" */
     static DEFAULT_CONTAINER = 'board-container';
 
+    /** @type {string} Name of CustomEvent for board cell clicks. */
+    static CLICK = 'boardClickEvent';
+    
     /**
      * @param {String} id - HTML id of parent container
      * @param {number} columns - Number of columns in the board 
@@ -20,7 +24,7 @@ export class Board {
         this.parentId = id;
 
         if (document.getElementById(id) === null) {
-            throw console.error(id + " HTML id of Board container was not found");
+            throw new Error(id + " HTML id of Board container was not found");
         }
         
 
@@ -64,15 +68,16 @@ export class Board {
 
     /**
      * Initializes the board DOM structure. Calls {@link Board.setupPieces()} to setup tokens.
-     * @param {Function} onCellClick - Callback function for board cell clicks
      * @param {string} parentId - The container element ID
      */
-    initDOM(onCellClick, parentId = this.parentId) {
+    initDOM(parentId = this.parentId) {
         const parent = document.getElementById(parentId);
+        
         if(!parent) {
             throw new Error(`Could not find parent HTML id=${parentId}`);
         }
         
+        // @ts-ignore
         parent.innerHTML = '';
 
         const board = document.createElement('div');
@@ -84,7 +89,11 @@ export class Board {
         for (let i = 0; i < this.cols * this.rows; i++) {
             const cell = document.createElement('div');
             cell.className = 'board-square';
-            cell.onclick = () => onCellClick(i);
+            
+            cell.onclick = () => 
+                document.dispatchEvent(new CustomEvent(Board.CLICK, { 
+                    detail: {index: i} 
+                }));            
 
             // If square contains token 
             if (this.content[i]) {
@@ -95,6 +104,9 @@ export class Board {
 
             board.appendChild(cell);
         }
+
+        // @ts-ignore
+        parent.appendChild(board);
     }
 
     /** Get piece at given `index`

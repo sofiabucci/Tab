@@ -11,10 +11,10 @@ export class Player {
      */
     constructor(id, name, password, type = Player.TYPE.HUMAN) {
         if (!Player.isValidId(id)) {
-            throw new Error(`Invalid player ID: ${id}`);
+            console.error(`Invalid player ID: ${id}`);
         }
         if (!Player.isValidType(type)) {
-            throw new Error(`Invalid player type: ${type}`);
+            console.error(`Invalid player type: ${type}`);
         }
 
         /** @type {string} */
