@@ -85,6 +85,9 @@ export class Board {
         for (let i = 0; i < this.cols * this.rows; i++) {
             const cell = document.createElement('div');
             cell.className = 'board-square';
+            if(onCellClick === undefined){
+                console.error("Failed to pass onCellClick Function.");
+            }
             cell.onclick = () => onCellClick(i);
 
             // If square contains token 

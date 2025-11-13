@@ -4,7 +4,7 @@
  * Provides AI opponent with configurable difficulty levels
  */
 
-import { Piece } from "../_Main/scripts/core/Piece";
+import { Piece } from "./core/Piece.js";
 
 /**
  * AI system for Tâb game

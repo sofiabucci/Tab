@@ -15,7 +15,7 @@ export class MessageService {
      * @param {string} text - Message text to display
      */
     static showMessage(text) {
-        const msgEl = document.getElementById(Messager.MESSAGE_BOX_ID);
+        const msgEl = document.getElementById(MessageService.MESSAGE_BOX_ID);
         if (msgEl) msgEl.textContent = text;
     }
 }

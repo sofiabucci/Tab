@@ -10,11 +10,11 @@ export class MovementCalculator {
      * @param {number} cols - number of columns in the board
      */
     constructor(rows, cols) {
-        this.cols = cols;
         this.rows = 4;
+        this.cols = cols;
 
         /**  @type {Map<number, number[]>} Keys are cell indexes, values are arrays of possible next cell indexes */
-        this.map = MovementCalculator.movementMap(cols, rows);
+        this.map = MovementCalculator.movementMap(rows, cols);
     }
 
     /** Static method that returns a map indicaintg the index of the next cell(s) on the board create board movement map 
@@ -37,7 +37,7 @@ export class MovementCalculator {
                     flow.set(i, [i + 1]);
                     break;
                 default:
-                    console.error("Could not build movement map");
+                    console.error("Could not build movement map "+rows + ";"+cols);
             }
         }
 

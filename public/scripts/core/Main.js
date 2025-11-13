@@ -81,7 +81,7 @@ class GameBoard {
         /** @type {boolean} */
         this.diceRolled = false;
 
-        this.board.initDOM(this.handleClick);
+        this.board.initDOM((this.handleClick.bind(this)));
         this.render();
 
         // Initialize dice rolling control
@@ -97,12 +97,13 @@ class GameBoard {
     }
 
     /**
-     * @returns {number} - Returns last roll value (from window.lastRoll) or null if none.
+     * @returns {number | null} - Returns last roll value (from window.lastRoll) or null if none.
      */
     getLastRoll() {
         if (window.lastRoll && window.lastRoll.value) return window.lastRoll.value;
 
         console.error("Could not get LastRoll");
+        return null;
     }
 
     /**
@@ -471,7 +472,7 @@ class GameBoard {
             if (!piece || piece.player !== this.currentPlayer) continue;
 
             // Check first move rule (only with Tâb)
-            if (!piece.hasConverted && window.lastRoll.value !== 1) continue;
+            if (!piece.hasConverted() && window.lastRoll.value !== 1) continue;
 
             const temp = this.movementCalculator.calculateTarget(i, window.lastRoll.value);
             const target = temp? temp[0] : null;
@@ -577,8 +578,8 @@ class GameBoard {
 
         // Count pieces for each player
         const pieceLists = this.board.findPlayerPieces();
-        const p1Pieces = pieceLists.P1Pieces.length();
-        const p2Pieces = pieceLists.P2Pieces.length();
+        const p1Pieces = pieceLists.P1Pieces.length;
+        const p2Pieces = pieceLists.P2Pieces.length;
 
         console.log('Player 1 pieces (total):', p1Pieces);
         console.log('Player 2 pieces (total):', p2Pieces);
