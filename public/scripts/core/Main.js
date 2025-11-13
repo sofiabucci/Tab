@@ -81,7 +81,7 @@ class GameBoard {
         /** @type {boolean} */
         this.diceRolled = false;
 
-        this.board.initDOM((this.handleClick.bind(this)));
+        this.board.initDOM();
         this.render();
 
         // Initialize dice rolling control
@@ -125,19 +125,19 @@ class GameBoard {
     handleClick(i) {
         if (!this.gameActive) {
             this.showMessage('Game over!');
-            return;
+            return 100;
         }
 
         // Check if dice has been rolled
         if (!this.diceRolled || !this.getLastRoll()) {
             this.showMessage('Roll dice first!');
-            return;
+            return 101;
         }
 
         // Check if it's human player's turn
         if (this.isAITurn()) {
             this.showMessage("Wait for AI's move");
-            return;
+            return 102;
         }
 
         const diceValue = this.getLastRoll();
@@ -145,7 +145,17 @@ class GameBoard {
         switch (this.gameState) {
             // Choose token
             case GameBoard.GAME_STATES.IDLE:
-                this.handleTokenSelect(i, diceValue);
+                const validToken = this.handleTokenSelect(i, diceValue);
+                if(validToken){
+                    const targets = this.movementCalculator.calculateTarget(this.selectedTokenIndex, diceValue);
+                    if(targets?.length === 1){
+                        this.handleTargetSelect(i, diceValue);
+                    }else if (targets?.length === 2){
+                        this.showMessage("Choose Destination");
+                    }
+                }else{
+                    console.log("Invalid target: " + JSON.stringify({i:i, diceValue:diceValue}));
+                }
                 break;
             // Choose target once token is selected
             case GameBoard.GAME_STATES.TOKEN_SELECTED:
@@ -153,6 +163,7 @@ class GameBoard {
                 break;
         }
 
+        return 0;
     }
 
     /**
@@ -164,7 +175,8 @@ class GameBoard {
     }
 
     /**
-     * Selects a piece for movement if owned by current player and respects first-move rules.
+     * Updates selectedTokenIndex field if valid a piece is clicked.
+     * Piece must be owned by current player and respects first-move rules.
      * @param {number} i - Index of selected token.
      * @param {number} diceValue - Current dice value.
      * @returns {boolean} - True on successful selection, false otherwise.
@@ -211,6 +223,7 @@ class GameBoard {
 
         this.showMessage(errorMessage.text);
         this.resetGameState();
+        console.log("Invalid target: " + {targetIndex: targetIndex, diceValue: diceValue})
         return false;
     }
 
@@ -682,6 +695,7 @@ class GameBoard {
  * @returns {GameBoard} - The created GameBoard instance
  */
 function generateBoard(columns = 9, options = {}) {
+    console.log("Initialisting GameBoard");
     window.game = new GameBoard(Board.DEFAULT_CONTAINER, columns, options);
     setupActionButtons();
 
@@ -699,6 +713,7 @@ function generateBoard(columns = 9, options = {}) {
         }
     });
 
+    console.log(JSON.stringify(window.game));
     return window.game;
 }
 
@@ -731,5 +746,27 @@ document.addEventListener('DOMContentLoaded', function () {
     setupActionButtons();
 });
 
+document.addEventListener(Board.CLICK, e => {
+    e.stopPropagation();
+    console.log("Board click: " + JSON.stringify(e.detail));
+    
+    let num = window.game.handleClick(e.detail.index);
+    console.log("HandleClick: " + num);
+});
+
 // Expose functions globally
 window.generateBoard = generateBoard;
+window.GameBoard = GameBoard;
+
+// Event listeners for dice and turn events
+document.addEventListener('stickRoll', (e) => {
+    if (window.game) {
+        window.game.handleStickRoll(e.detail);
+    }
+});
+
+document.addEventListener('turnChanged', () => {
+    if (window.game && window.updateRollButtonState) {
+        window.updateRollButtonState();
+    }
+});
