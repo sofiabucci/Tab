@@ -9,13 +9,16 @@
   <link rel="stylesheet" href="styles/dice.css">
   <link rel="stylesheet" href="styles/game-section.css">
   <link rel="stylesheet" href="styles/modals.css">
+  <link rel="stylesheet" href="styles/online.css">
   <script type="module" src="scripts/core/Main.js"></script>
   <script type="module" src="scripts/ia.js"></script>
   <script src="scripts/navbar.js"></script>
   <script src="scripts/setup.js"></script>
   <script src="scripts/dice.js"></script>
+  <script src="scripts/online.js"></script>
   <script src="scripts/classification.js"></script>
-  
+  <script src="scripts/auth.js"></script>
+  <script src="scripts/core/ServerAPI.js"></script>
 </head>
 <body>
 
@@ -32,9 +35,8 @@
   </nav>
 
   <section id="gameSection">
-    <h2 hidden>GameArea</h2>
-    <div id="board-container" class="board-container">
-    </div>
+    <h2 hidden>Game Area</h2>
+    <div id="board-container" class="board-container"></div>
 
     <div class="right-container">
       <div class="player-info-container">
@@ -55,7 +57,7 @@
           Welcome to Tâb Game!
         </div>
         
-        <div class="functionsGame">
+        <div class="functions-game">
           <button id="passBtn" class="game-action-btn">Pass Turn</button>
           <button id="resignBtn" class="game-action-btn">Resign</button>
         </div>
@@ -70,13 +72,13 @@
     </div>
   </section>
 
+  <!-- Setup Modal -->
   <div id="setupModal" class="modal hidden">
     <div class="setup-container">
-      <h2 id="gameSetupTitle">Game Setup</h2>
+      <h2>Game Setup</h2>
       <form id="setupForm" class="setup-form">
-
         <div class="form-group">
-          <label>Game Mode:</label>
+          <label for="gameMode">Game Mode:</label>
           <select id="gameMode">
             <option value="pvp">Player vs Player</option>
             <option value="pvc">Player vs Computer</option>
@@ -84,17 +86,17 @@
           </select>
         </div>
 
-        <div class="form-group" id="difficultyGroup" style="display: none">
-            <label>AI Difficulty:</label>
-            <select id="difficulty">
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-            </select>
+        <div class="form-group" id="difficultyGroup" style="display: none;">
+          <label for="difficulty">AI Difficulty:</label>
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
         </div>
 
         <div class="form-group">
-          <label>Columns Number:</label>
+          <label for="boardSize">Columns Number:</label>
           <select id="boardSize">
             <option value="7">7</option>
             <option value="9">9</option>
@@ -104,8 +106,8 @@
           </select>
         </div>
 
-        <div class="form-group" id="firstPlayer">
-          <label>First Player:</label>
+        <div class="form-group">
+          <label for="firstPlayerSelect">First Player:</label>
           <select id="firstPlayerSelect">
             <option value="player1">Player 1</option>
             <option value="player2">Player 2 / AI</option>
@@ -120,6 +122,7 @@
     </div>
   </div>
 
+  <!-- Rules Modal -->
   <div id="rulesModal" class="modal hidden">
     <div class="setup-container rules-modal-container">
       <h2>Tâb Game Rules</h2>
@@ -143,12 +146,22 @@
         
         <h3>📊 Stick Values</h3>
         <table class="rules-table">
-          <tr><th>Light Sides</th><th>Value</th><th>Name</th><th>Repeats</th><th>Probability</th></tr>
-          <tr><td>0</td><td>6</td><td>Sitteh</td><td>✓</td><td>6%</td></tr>
-          <tr><td>1</td><td>1</td><td>Tâb</td><td>✓</td><td>25%</td></tr>
-          <tr><td>2</td><td>2</td><td>Itneyn</td><td>✗</td><td>38%</td></tr>
-          <tr><td>3</td><td>3</td><td>Teláteh</td><td>✗</td><td>25%</td></tr>
-          <tr><td>4</td><td>4</td><td>Arba'ah</td><td>✓</td><td>6%</td></tr>
+          <thead>
+            <tr>
+              <th>Light Sides</th>
+              <th>Value</th>
+              <th>Name</th>
+              <th>Repeats</th>
+              <th>Probability</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>0</td><td>6</td><td>Sitteh</td><td>✓</td><td>6%</td></tr>
+            <tr><td>1</td><td>1</td><td>Tâb</td><td>✓</td><td>25%</td></tr>
+            <tr><td>2</td><td>2</td><td>Itneyn</td><td>✗</td><td>38%</td></tr>
+            <tr><td>3</td><td>3</td><td>Teláteh</td><td>✗</td><td>25%</td></tr>
+            <tr><td>4</td><td>4</td><td>Arba'ah</td><td>✓</td><td>6%</td></tr>
+          </tbody>
         </table>
         
         <h3>🚶 Movement Rules</h3>
@@ -184,16 +197,18 @@
     </div>
   </div>
 
+
+  <!-- Classification Modal -->
   <div id="classModal" class="modal hidden">
     <div class="setup-container">
-      <h2>Game Classifications</h2>
-      
-      <div class="classification-controls">
-        <button id="refreshClassification">Refresh</button>
-        <button id="clearClassification">Clear All</button>
+      <h2>Game Classification</h2>
+
+      <div class="classification-tabs">
+        <button class="classification-tab-btn active" data-tab="local">Local 💾</button>
+        <button class="classification-tab-btn" data-tab="online">Online 🌐</button>
       </div>
 
-      <div class="classification-container">
+      <div class="classification-tab-pane active" id="localTab">
         <table class="classification-table">
           <thead>
             <tr>
@@ -201,69 +216,100 @@
               <th>Player</th>
               <th>Wins</th>
               <th>Losses</th>
-              <th>Total Score</th>
+              <th>Win Rate</th>
             </tr>
           </thead>
-          <tbody id="classificationBody">
-          </tbody>
+          <tbody id="localRankingBody"></tbody>
         </table>
       </div>
 
-      <div class="classification-stats">
-        <h3>Overall Statistics</h3>
-        <div id="overallStats">
-          <div class="stat-item">
-            <span class="stat-label">Total Games:</span>
-            <span class="stat-value">0</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Total Players:</span>
-            <span class="stat-value">0</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Total Wins:</span>
-            <span class="stat-value">0</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Total Score:</span>
-            <span class="stat-value">0</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Last Updated:</span>
-            <span class="stat-value">-</span>
-          </div>
-        </div>
+      <div class="classification-tab-pane" id="onlineTab">
+        <table class="classification-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Wins</th>
+              <th>Losses</th>
+              <th>Win Rate</th>
+            </tr>
+          </thead>
+          <tbody id="onlineRankingBody"></tbody>
+        </table>
+      </div>
+
+      <div class="classification-controls">
+        <button id="refreshClassification">Refresh</button>
+        <button id="clearClassification">Clear Local</button>
       </div>
     </div>
   </div>
-  
+
+  <!-- Authentication Modal -->
   <div id="loginModal" class="modal hidden">
     <div class="setup-container">
-      <h2>Login</h2>
-      <form id="loginForm" class="setup-form">
-        <div class="form-group">
-          <label>Username:</label>
-          <input type="text" id="username">
-        </div>
-        <div class="form-group">
-          <label>Password:</label>
-          <input type="password" id="password">
-        </div>
-        <button type="submit">Login</button>
-      </form>
+
+      <!-- Login Form -->
+      <div class="auth-tab-pane active" id="loginTab">
+        <h2>Login</h2>
+        <form id="loginForm" class="setup-form">
+          <div class="form-group">
+            <label for="loginNick">Nickname:</label>
+            <input type="text" id="loginNick" required placeholder="Your nickname" maxlength="20">
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password:</label>
+            <input type="password" id="loginPassword" required placeholder="Your password">
+          </div>
+          <div class="button-group">
+            <button type="submit">Login</button>
+          </div>
+          <div class="auth-footer">
+            <p>Don't have an account? <a href="#" class="switch-to-register">Register here</a></p>
+          </div>
+        </form>
+      </div>
+
+      <!-- Register Form -->
+      <div class="auth-tab-pane" id="registerTab">
+        <h2>Register</h2>
+        <form id="registerForm" class="setup-form">
+          <div class="form-group">
+            <label for="registerNick">Nickname:</label>
+            <input type="text" id="registerNick" required maxlength="20" placeholder="Choose a nickname">
+            <small class="form-hint">Max 20 characters</small>
+            <div class="validation-error hidden" id="nickError"></div>
+          </div>
+          <div class="form-group">
+            <label for="registerPassword">Password:</label>
+            <input type="password" id="registerPassword" required placeholder="Choose a password" minlength="4">
+            <small class="form-hint">Minimum 4 characters</small>
+          </div>
+          <div class="form-group">
+            <label for="confirmPassword">Confirm Password:</label>
+            <input type="password" id="confirmPassword" required placeholder="Confirm your password">
+            <div class="validation-error hidden" id="passwordError"></div>
+          </div>
+          <div class="button-group">
+            <button type="submit">Create Account</button>
+          </div>
+          <div class="auth-footer">
+            <p>Already have an account? <a href="#" class="switch-to-login">Login here</a></p>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 
+  <!-- Victory Modal -->
   <div id="victoryModal" class="modal hidden">
     <div class="setup-container">
       <h2>Game Over</h2>
-      <p id="victoryMessage" >
-      </p>
-      <p id="victoryReason">
-        Game finished
-      </p>
+      <p id="victoryMessage"></p>
+      <p id="victoryReason">Game finished</p>
       <div class="button-group">
         <button id="newGameFromVictory">New Game</button>
+        <button id="closeVictoryModal">Close</button>
       </div>
     </div>
   </div>

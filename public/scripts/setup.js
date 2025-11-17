@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
      * Handle game setup form submission
      * @param {Event} e - Form submit event
      */
-    function handleSetupSubmit(e) {
+    async function handleSetupSubmit(e) {
         e.preventDefault();
 
         const mode = gameModeSelect.value;
@@ -58,10 +58,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const columns = parseInt(document.getElementById('boardSize').value);
         const firstPlayer = document.getElementById('firstPlayerSelect').value;
 
-        // Update player labels based on game mode
+        // ONLINE GAME - handled by online manager
+        if (mode === 'pvpo') {
+            const success = await window.onlineGameManager.startOnlineGame(columns, firstPlayer);
+            if (success) {
+                closeSetupModal();
+            }
+            return;
+        }
+
+        // LOCAL GAMES - existing logic
         updatePlayerLabels(mode);
 
-        // Normalize and prepare game options
         const normalizedFirst = (firstPlayer === 'player2' || firstPlayer === 'player-2') ? 'player-2' : 'player-1';
         const options = {
             mode: mode || 'pvp',

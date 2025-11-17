@@ -202,7 +202,7 @@ button:hover {
 
 /* ===== CLASSIFICATION MODAL ===== */
 
-.classification-controls {
+.classification-controls, .classification-tabs {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
@@ -211,7 +211,8 @@ button:hover {
 }
 
 .classification-controls select,
-.classification-controls button {
+.classification-controls button,
+.classification-tabs button {
     padding: 8px 12px;
     border: 2px solid var(--light-wood);
     border-radius: 10px;
@@ -220,7 +221,8 @@ button:hover {
 }
 
 .classification-controls select:hover,
-.classification-controls button:hover {
+.classification-controls button:hover,
+.classification-tabs button:hover {
     background: #deb887;
     transform: scale(1.05);
 }
@@ -249,40 +251,7 @@ button:hover {
     font-size: 0.95rem;
 }
 
-.classification-stats {
-    margin-top: 20px;
-    padding: 15px;
-    background: #b68c55;
-    border-radius: 8px;
-}
 
-.classification-stats h3 {
-    margin-bottom: 15px;
-    color: #333;
-    text-align: center;
-}
-
-.stat-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #ddd;
-}
-
-.stat-item:last-child {
-    border-bottom: none;
-}
-
-.stat-label {
-    font-weight: bold;
-    color: #555;
-}
-
-.stat-value {
-    color: #333;
-    font-weight: 600;
-}
 
 /* Ranking Highlights */
 .rank-1 {
@@ -304,32 +273,23 @@ button:hover {
 .rank-2 td:first-child::before { content: "🥈 "; font-size: 1.2em; }
 .rank-3 td:first-child::before { content: "🥉 "; font-size: 1.2em; }
 
-.classification-container {
-    max-height: 400px;
-    overflow-y: auto;
-    border-radius: 15px;
-    margin-bottom: 20px;
-}
-
 #classificationBody {
     color: black;
 }
 
-/* Scrollbar Styling */
-.classification-container::-webkit-scrollbar {
-    width: 8px;
+
+.classification-tab-pane {
+    display: none;      
 }
 
-.classification-container::-webkit-scrollbar-track {
-    background: #6b4519;
-    border-radius: 4px;
+.classification-tab-pane.active {
+    display: block;    
 }
 
-.classification-container::-webkit-scrollbar-thumb {
-    background: var(--light-wood);
-    border-radius: 4px;
+.auth-tab-pane {
+    display: none;      
 }
 
-.classification-container::-webkit-scrollbar-thumb:hover {
-    background: #deb887;
+.auth-tab-pane.active {
+    display: block;    
 }
