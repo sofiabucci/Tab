@@ -97,13 +97,19 @@ class GameBoard {
     }
 
     /**
-     * @returns {number | null} - Returns last roll value (from window.lastRoll) or null if none.
+     * @returns {number | null} - Returns value of the last roll (from window.lastRoll.value) or null.
      */
     getLastRoll() {
-        if (window.lastRoll && window.lastRoll.value) return window.lastRoll.value;
+        if (window.lastRoll && window.lastRoll.value){
+            return window.lastRoll.value;
+        }
 
         console.error("Could not get LastRoll");
         return null;
+    }
+    /** @param {Object | null} obj */
+    setLastRoll(obj){
+        window.lastRoll = obj;
     }
 
     /**
@@ -111,10 +117,7 @@ class GameBoard {
      */
     canRepeat() {
         const value = this.getLastRoll();
-        if (value) {
-            return ([1, 4, 6].includes(value));
-        }
-        return false;
+        return (value == 1) || (value == 4) || (value == 6);
     }
 
     /**
@@ -147,20 +150,34 @@ class GameBoard {
             case GameBoard.GAME_STATES.IDLE:
                 const validToken = this.handleTokenSelect(i, diceValue);
                 if(validToken){
+
                     const targets = this.movementCalculator.calculateTarget(this.selectedTokenIndex, diceValue);
-                    if(targets?.length === 1){
-                        this.handleTargetSelect(i, diceValue);
-                    }else if (targets?.length === 2){
-                        this.showMessage("Choose Destination");
+                    console.log("handleClick: Trying Automove " + JSON.stringify({selected: this.selectedTokenIndex, dice:diceValue, out:targets}));
+                    
+                    if(targets.length === 1){ //only 1 path. index 0 is always valid.
+                        this.handleTargetSelect(targets[0], diceValue);
+
+                    }else if (targets.length === 2){ // 2 paths. Check if index 1 is valid.
+                        const flag = this.isValidMove(i, targets[1], diceValue);
+
+                        if(flag === false){
+                            this.handleTargetSelect(targets[0], diceValue);
+                        }else{
+                            this.showMessage("Choose Destination");
+                        }
                     }
                 }else{
-                    console.log("Invalid target: " + JSON.stringify({i:i, diceValue:diceValue}));
+                    console.log("handleClick: Invalid target: " + JSON.stringify({i:i, diceValue:diceValue}));
                 }
                 break;
             // Choose target once token is selected
             case GameBoard.GAME_STATES.TOKEN_SELECTED:
+                console.log("handleClick: Invalid target " + JSON.stringify({i:i, diceValue:diceValue}));
                 this.handleTargetSelect(i, diceValue);
                 break;
+            default:
+                console.error("handleClick: Bad GameState "+ this.gameState);
+                this.resetGameState();
         }
 
         return 0;
@@ -181,23 +198,27 @@ class GameBoard {
      * @param {number} diceValue - Current dice value.
      * @returns {boolean} - True on successful selection, false otherwise.
      */
-    handleTokenSelect(i, diceValue) {
+    handleTokenSelect(i, diceValue) {     
+        console.log('handleTokenSelect: ... ' + JSON.stringify({index:i, dice:diceValue}));   
         const piece = this.board.getPieceAt(i);
 
         if (!piece || piece.player !== this.currentPlayer) {
             this.showMessage('Select your piece');
+            console.log('handleTokenSelect: bad piece, ' + JSON.stringify({piece:piece, index:i, dice:diceValue}));
             return false;
         }
-
+        
         // Check first move rule (only with Tâb)
         if (piece.state === Piece.UNMOVED && diceValue !== 1) {
             this.showMessage('First move must be with Tâb (1)');
+            console.log('handleTokenSelect: First move must be with Tâb (1)');
             return false;
         }
-
+        
         // Valid token selected
         this.gameState = GameBoard.GAME_STATES.TOKEN_SELECTED;
         this.selectedTokenIndex = i;
+        console.log('handleTokenSelect: ok, ' + JSON.stringify({index:i, dice:diceValue}));
         return true;
     }
     /**
@@ -208,8 +229,11 @@ class GameBoard {
      * @returns {boolean} - True if move performed, false otherwise.
      */
     handleTargetSelect(targetIndex, diceValue) {
-        if (!this.selectedTokenIndex || this.selectedTokenIndex === targetIndex) {
+        console.log('handleTargetSelect: Start ' + JSON.stringify({target:targetIndex, dice:diceValue}));
+
+        if (this.selectedTokenIndex === null || this.selectedTokenIndex === targetIndex) {
             // Deselect
+            console.log('handleTargetSelect: token deselected ' + JSON.stringify({selected: this.selectedTokenIndex, target:targetIndex, dice:diceValue}));
             this.resetGameState();
             return false;
         }
@@ -218,12 +242,16 @@ class GameBoard {
         let errorMessage = { text: '' };
         if (this.isValidMove(this.selectedTokenIndex, targetIndex, diceValue, errorMessage)) {
             this.gameState = GameBoard.GAME_STATES.TARGET_SELECTED;
-            return this.movePiece(this.selectedTokenIndex, targetIndex);
+            console.log("handleTargetSelect: trying move " + {from: this.selectedTokenIndex, to:targetIndex});
+            this.movePiece(this.selectedTokenIndex, targetIndex);
+            this.resetGameState();
+            console.log("handleTargetSelect: Success ");
+            return true;
         }
 
         this.showMessage(errorMessage.text);
         this.resetGameState();
-        console.log("Invalid target: " + {targetIndex: targetIndex, diceValue: diceValue})
+        console.log("handleTargetSelect: targeting failed " + {"targetIndex": targetIndex, "diceValue": diceValue, "currentPlayer":this.currentPlayer, "error":errorMessage.text});
         return false;
     }
 
@@ -323,19 +351,25 @@ class GameBoard {
      * Moves a piece from one position to another. Does not validate.
      * @param {number} from - Source index.
      * @param {number} to - Destination index.
-     * @param {number} [diceValue] - Optional diceValue, defaults to getLastRoll().
+     * @param {number | null} [diceValue] - Optional diceValue, defaults to getLastRoll().
      * Executes movement without re-validating: handles capture messages, state transitions (UNMOVED->MOVED, PROMOTED),
      * sets pieces on board array, renders, checks for game end and ends the turn. Note: does not throw on invalid data.
-     *
-     */
-    movePiece(from, to, diceValue = this.getLastRoll()) {
+    *
+    */
+   movePiece(from, to, diceValue = this.getLastRoll()) {
+        console.log("movePiece: Trying to move Piece " + from + "->"+ to );
+        if(!diceValue) {
+            console.error("movePiece: Bad dice "+ JSON.stringify({dice:diceValue}));
+            return false;
+        };
+
         const piece = this.board.getPieceAt(from);
         const pieceAtTarget = this.board.getPieceAt(to);
         const targets = this.movementCalculator.calculateTarget(from, diceValue);
 
         if(!piece || !targets) {
             console.error("Invalid movePiece call. Expected a valid move.")
-            return
+            return false;
         };
 
         // Capture logic
@@ -363,7 +397,9 @@ class GameBoard {
         this.checkGameEnd();
 
         // End turn (only one move per turn even with repeat)
+        console.log("movePiece: Piece Moved successfully " + from + "->"+ to );
         this.endTurn();
+        return true;
     }
 
     /**
@@ -389,7 +425,7 @@ class GameBoard {
         } else {
             // Reset dice state
             this.diceRolled = false;
-            window.lastRoll = null;
+            this.setLastRoll(null);
             window.canRollAgain = false;
 
             // Switch players
@@ -430,11 +466,11 @@ class GameBoard {
      * Makes AI move based on current game state
      */
     async makeAIMove() {
-        if (!window.IA || !this.gameActive || !window.lastRoll) return;
+        if (!window.IA || !this.gameActive || this.getLastRoll()===null) return;
 
         try {
             const state = window.IA.fromGameBoard(this.board.content, this.cols, this.currentPlayer);
-            const move = await window.IA.chooseMoveAI(state, window.lastRoll.value, this.options.difficulty);
+            const move = await window.IA.chooseMoveAI(state, this.getLastRoll(), this.options.difficulty);
 
             if (move && move.type !== 'PASS') {
                 const indices = window.IA.moveToIndices(move, this.cols);
@@ -456,7 +492,7 @@ class GameBoard {
     passTurn() {
         if (!this.gameActive) return;
 
-        if (!this.diceRolled || !window.lastRoll) {
+        if (!this.diceRolled || this.getLastRoll()===null) {
             this.showMessage('Roll dice first!');
             return;
         }
@@ -478,16 +514,17 @@ class GameBoard {
      * @see {@link GameBoard.isValidMove}
      */
     checkValidMoves() {
-        if (!window.lastRoll) return false;
+        const diceValue = this.getLastRoll();
+        if (diceValue===null) return false;
 
         for (let i = 0; i < this.board.content.length; i++) {
             const piece = this.board.content[i];
             if (!piece || piece.player !== this.currentPlayer) continue;
 
             // Check first move rule (only with Tâb)
-            if (!piece.hasConverted() && window.lastRoll.value !== 1) continue;
+            if (!piece.hasConverted() && diceValue !== 1) continue;
 
-            const temp = this.movementCalculator.calculateTarget(i, window.lastRoll.value);
+            const temp = this.movementCalculator.calculateTarget(i, diceValue);
             const target = temp? temp[0] : null;
             if (!target) continue;
 
@@ -667,7 +704,7 @@ class GameBoard {
      * Stores the roll on window.lastRoll, marks diceRolled, shows human-readable roll message, triggers AI move if appropriate.
      */
     handleStickRoll(roll) {
-        window.lastRoll = roll;
+        this.setLastRoll(roll);
         this.diceRolled = true;
 
         const names = { 1: 'Tâb', 2: 'Itneyn', 3: 'Teláteh', 4: 'Arba\'ah', 6: 'Sitteh' };
@@ -695,7 +732,7 @@ class GameBoard {
  * @returns {GameBoard} - The created GameBoard instance
  */
 function generateBoard(columns = 9, options = {}) {
-    console.log("Initialisting GameBoard");
+    console.log("generateBoard: Initialisting GameBoard");
     window.game = new GameBoard(Board.DEFAULT_CONTAINER, columns, options);
     setupActionButtons();
 
@@ -713,7 +750,6 @@ function generateBoard(columns = 9, options = {}) {
         }
     });
 
-    console.log(JSON.stringify(window.game));
     return window.game;
 }
 
@@ -751,7 +787,7 @@ document.addEventListener(Board.CLICK, e => {
     console.log("Board click: " + JSON.stringify(e.detail));
     
     let num = window.game.handleClick(e.detail.index);
-    console.log("HandleClick: " + num);
+    console.log("HandleClick: returned " + num);
 });
 
 // Expose functions globally
