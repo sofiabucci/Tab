@@ -1,0 +1,16 @@
+{
+  "sofiab": {
+    "password": "49067ded852fdf7bf6742ba29540679c646eb62b1e9fa9c3372c17b1d2782b87",
+    "createdAt": "2025-12-01T17:47:47.443Z",
+    "gamesPlayed": 0,
+    "victories": 0,
+    "lastLogin": "2025-12-01T17:47:47.443Z"
+  },
+  "beabea": {
+    "password": "4b2f3a35a7b871d6342121ec22de12673375fb1985015cf7b439633c30b21068",
+    "createdAt": "2025-12-01T17:48:24.583Z",
+    "gamesPlayed": 0,
+    "victories": 0,
+    "lastLogin": "2025-12-01T17:48:24.583Z"
+  }
+}

@@ -4,22 +4,22 @@ const querystring = require('querystring');
 const path = require('path');
 const fs = require('fs');
 
-// Carregar módulos do servidor
+// Carregar módulos
 const auth = require('./modules/auth');
 const game = require('./modules/game');
 const storage = require('./modules/storage');
 const validators = require('./modules/validators');
 
 // Configurações - GRUPO 4
-const PORT = 8104; // PORT 81XX onde XX=4
+const PORT = 8104;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-console.log(`👥 Grupo 4 - Servidor na porta ${PORT}`);
+console.log(`👥 Grupo 4 - Servidor Tab na porta ${PORT}`);
 
 // Inicializar armazenamento
-storage.init();
+storage.init().catch(console.error);
 
-// Helper para enviar respostas
+// Helper para respostas
 function sendResponse(res, statusCode, data) {
     res.writeHead(statusCode, {
         'Content-Type': 'application/json',
@@ -27,10 +27,15 @@ function sendResponse(res, statusCode, data) {
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type'
     });
-    res.end(JSON.stringify(data));
+    
+    if (data && Object.keys(data).length === 0) {
+        res.end('{}');
+    } else {
+        res.end(JSON.stringify(data));
+    }
 }
 
-// Helper para ler body da requisição
+// Helper para ler body
 function readBody(req) {
     return new Promise((resolve, reject) => {
         let body = '';
@@ -40,7 +45,7 @@ function readBody(req) {
     });
 }
 
-// Handler para pedidos POST
+// Handlers POST
 async function handlePostRequest(req, res, pathname, body) {
     let data;
     try {
@@ -68,25 +73,22 @@ async function handlePostRequest(req, res, pathname, body) {
         case '/notify':
             await handleNotify(res, data);
             break;
-        case '/ranking':
-            await handleRanking(res);
-            break;
         default:
             sendResponse(res, 404, { error: 'Endpoint não encontrado' });
     }
 }
 
-// Handler: Server-Sent Events para /update
+// Handler GET /update (SSE)
 function handleUpdate(req, res, query) {
-    const gameId = query.game;
+    const { game: gameId, nick } = query;
     
-    if (!gameId) {
-        return sendResponse(res, 400, { error: 'Parâmetro game é obrigatório' });
+    if (!gameId || !nick) {
+        return sendResponse(res, 400, { error: 'Parâmetros game e nick são obrigatórios' });
     }
 
     const gameData = storage.getGame(gameId);
     if (!gameData) {
-        return sendResponse(res, 404, { error: 'Jogo não encontrado' });
+        return sendResponse(res, 404, { error: 'Invalid game reference' });
     }
 
     // Configurar SSE
@@ -97,25 +99,75 @@ function handleUpdate(req, res, query) {
         'Access-Control-Allow-Origin': '*'
     });
 
-    // Enviar estado inicial do jogo
-    res.write(`data: ${JSON.stringify({
-        game: gameId,
-        players: gameData.players,
-        status: gameData.status,
-        turn: gameData.players[gameData.currentPlayer]?.nick,
-        pieces: gameData.players.map(p => p.pieces),
-        dice: gameData.diceValue
-    })}\n\n`);
+    // Construir resposta conforme especificação
+    const response = {};
+    
+    // Adicionar propriedades apenas se existirem
+    if (gameData.pieces) response.pieces = gameData.pieces;
+    if (gameData.initial) response.initial = gameData.initial;
+    if (gameData.step) response.step = gameData.step;
+    if (gameData.turn) response.turn = gameData.turn;
+    if (gameData.players && Object.keys(gameData.players).length > 0) response.players = gameData.players;
+    if (gameData.dice) response.dice = gameData.dice;
+    if (gameData.selected && gameData.selected.length > 0) response.selected = gameData.selected;
+    if (gameData.winner !== undefined) response.winner = gameData.winner;
+    if (gameData.mustPass !== undefined) response.mustPass = gameData.mustPass;
 
-    // Manter conexão aberta por 60 segundos
-    const interval = setInterval(() => {
-        res.write(': ping\n\n');
-    }, 30000);
+    // Enviar estado inicial
+    res.write(`data: ${JSON.stringify(response)}\n\n`);
+
+    // Timer para fechar conexão após jogo terminado
+    let interval;
+    if (gameData.status === 'finished') {
+        // Fechar após 5 segundos se jogo terminou
+        setTimeout(() => {
+            if (!res.finished) {
+                res.end();
+            }
+        }, 5000);
+    } else {
+        // Ping para manter conexão
+        interval = setInterval(() => {
+            if (!res.finished) {
+                res.write(': ping\n\n');
+            }
+        }, 30000);
+    }
 
     req.on('close', () => {
-        clearInterval(interval);
-        console.log(`Conexão SSE fechada para jogo ${gameId}`);
+        if (interval) clearInterval(interval);
     });
+}
+
+// Handler GET /ranking
+async function handleRanking(req, res, query) {
+    const { group, size } = query;
+    
+    // Validar parâmetros conforme especificação
+    if (group === undefined) {
+        return sendResponse(res, 400, { error: 'Undefined group' });
+    }
+    
+    const groupNum = parseInt(group);
+    if (isNaN(groupNum)) {
+        return sendResponse(res, 400, { error: `Invalid group '${group}'` });
+    }
+    
+    if (size === undefined) {
+        return sendResponse(res, 400, { error: "Invalid size 'undefined'" });
+    }
+    
+    const sizeNum = parseInt(size);
+    if (isNaN(sizeNum) || sizeNum % 2 === 0) {
+        return sendResponse(res, 400, { error: `Invalid size '${size}'` });
+    }
+
+    try {
+        const ranking = await game.getRanking(groupNum, sizeNum);
+        sendResponse(res, 200, { ranking });
+    } catch (error) {
+        sendResponse(res, 400, { error: error.message });
+    }
 }
 
 // Servir ficheiros estáticos
@@ -138,7 +190,6 @@ function serveStaticFile(req, res, filePath) {
     fs.readFile(filePath, (error, content) => {
         if (error) {
             if (error.code === 'ENOENT') {
-                // Se não for ficheiro estático, tentar servir index.html para SPA
                 fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (err, html) => {
                     if (err) {
                         sendResponse(res, 404, { error: 'Ficheiro não encontrado' });
@@ -166,7 +217,7 @@ async function handleRegister(res, data) {
 
     try {
         await game.register(data.nick, data.password);
-        sendResponse(res, 200, { success: true });
+        sendResponse(res, 200, {});
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
@@ -179,7 +230,7 @@ async function handleJoin(res, data) {
     }
 
     try {
-        const result = await game.join(data.nick, data.password, data.size, data.game);
+        const result = await game.join(data.group, data.nick, data.password, data.size);
         sendResponse(res, 200, result);
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
@@ -198,7 +249,7 @@ async function handleLeave(res, data) {
 
     try {
         await game.leave(data.nick, data.password, data.game);
-        sendResponse(res, 200, { success: true });
+        sendResponse(res, 200, {});
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
@@ -215,8 +266,8 @@ async function handleRoll(res, data) {
     }
 
     try {
-        const result = await game.roll(data.nick, data.password, data.game);
-        sendResponse(res, 200, result);
+        await game.roll(data.nick, data.password, data.game);
+        sendResponse(res, 200, {});
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
@@ -233,8 +284,8 @@ async function handlePass(res, data) {
     }
 
     try {
-        const result = await game.pass(data.nick, data.password, data.game);
-        sendResponse(res, 200, result);
+        await game.pass(data.nick, data.password, data.game);
+        sendResponse(res, 200, {});
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
@@ -247,17 +298,8 @@ async function handleNotify(res, data) {
     }
 
     try {
-        const result = await game.notify(data.nick, data.password, data.game, data.cell);
-        sendResponse(res, 200, result);
-    } catch (error) {
-        sendResponse(res, 400, { error: error.message });
-    }
-}
-
-async function handleRanking(res) {
-    try {
-        const result = await game.getRanking();
-        sendResponse(res, 200, result);
+        await game.notify(data.nick, data.password, data.game, data.cell);
+        sendResponse(res, 200, {});
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
@@ -265,7 +307,7 @@ async function handleRanking(res) {
 
 // Servidor HTTP
 const server = http.createServer(async (req, res) => {
-    // CORS headers
+    // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -280,7 +322,6 @@ const server = http.createServer(async (req, res) => {
     const pathname = parsedUrl.pathname;
     const method = req.method;
 
-    // Log da requisição
     console.log(`[${new Date().toISOString()}] ${method} ${pathname}`);
 
     try {
@@ -289,8 +330,10 @@ const server = http.createServer(async (req, res) => {
             await handlePostRequest(req, res, pathname, body);
         } else if (method === 'GET' && pathname === '/update') {
             handleUpdate(req, res, parsedUrl.query);
+        } else if (method === 'GET' && pathname === '/ranking') {
+            handleRanking(req, res, parsedUrl.query);
         } else {
-            // Servir ficheiros estáticos
+            // Ficheiros estáticos
             let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
             serveStaticFile(req, res, filePath);
         }
@@ -302,25 +345,27 @@ const server = http.createServer(async (req, res) => {
 
 // Iniciar servidor
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor do Grupo 4 iniciado!`);
+    console.log(`✅ Servidor Tab do Grupo 4 iniciado: http://localhost:${PORT}`);
+    console.log(`📊 Ranking: http://localhost:${PORT}/ranking?group=4&size=5`);
 });
 
-// Tratar shutdown graceful
-process.on('SIGINT', () => {
+// Shutdown graceful
+process.on('SIGINT', async () => {
     console.log('\n🔄 Encerrando servidor...');
-    server.close(() => {
+    server.close(async () => {
+        await storage.persistAll();
         console.log('✅ Servidor encerrado');
         process.exit(0);
     });
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
     console.log('\n🔄 Encerrando servidor...');
-    server.close(() => {
+    server.close(async () => {
+        await storage.persistAll();
         console.log('✅ Servidor encerrado');
         process.exit(0);
     });
 });
 
-// Exportar para testes
 module.exports = server;

@@ -29,18 +29,30 @@ module.exports = {
      * Valida dados do join
      */
     validateJoin: function(data) {
-        const { nick, password, size, game } = data;
+        const { group, nick, password, size } = data;
         
-        if (!nick || !password) {
-            return { valid: false, error: 'Nick e password são obrigatórios' };
+        if (group === undefined || !nick || !password || size === undefined) {
+            return { valid: false, error: 'Todos os parâmetros são obrigatórios' };
         }
         
-        if (size && (typeof size !== 'number' || size < 2 || size > 4)) {
-            return { valid: false, error: 'Size deve ser número entre 2 e 4' };
+        if (typeof group !== 'number') {
+            return { valid: false, error: 'Group deve ser número' };
         }
         
-        if (game && typeof game !== 'string') {
-            return { valid: false, error: 'Game deve ser string' };
+        if (typeof nick !== 'string') {
+            return { valid: false, error: 'Nick deve ser string' };
+        }
+        
+        if (typeof password !== 'string') {
+            return { valid: false, error: 'Password deve ser string' };
+        }
+        
+        if (typeof size !== 'number') {
+            return { valid: false, error: 'Size deve ser número' };
+        }
+        
+        if (size % 2 === 0) {
+            return { valid: false, error: `Invalid size '${size}'` };
         }
         
         return { valid: true };
@@ -73,21 +85,12 @@ module.exports = {
             return { valid: false, error: 'Todos os parâmetros são obrigatórios' };
         }
         
-        if (typeof cell !== 'number' || cell < 0 || cell > 63) {
-            return { valid: false, error: 'Cell deve ser número entre 0 e 63' };
+        if (typeof cell !== 'number' || !Number.isInteger(cell)) {
+            return { valid: false, error: 'cell is not an integer' };
         }
         
-        return { valid: true };
-    },
-
-    /**
-     * Valida dados do roll/pass
-     */
-    validateGameAction: function(data) {
-        const { nick, password, game } = data;
-        
-        if (!nick || !password || !game) {
-            return { valid: false, error: 'Nick, password e game são obrigatórios' };
+        if (cell < 0) {
+            return { valid: false, error: 'cell is negative' };
         }
         
         return { valid: true };

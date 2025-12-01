@@ -1,0 +1,159 @@
+{
+  "3a326b08783653b9": {
+    "id": "3a326b08783653b9",
+    "group": 4,
+    "size": 9,
+    "players": {
+      "beabea": "Blue",
+      "sofiab": "Red"
+    },
+    "status": "playing",
+    "createdAt": "2025-12-01T17:49:24.648Z",
+    "initial": "beabea",
+    "turn": "beabea",
+    "step": "from",
+    "dice": {
+      "stickValues": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "value": 6,
+      "keepPlaying": true
+    },
+    "selected": [],
+    "pieces": [
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      {
+        "color": "Blue",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "beabea"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      },
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      },
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      },
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      },
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      },
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      },
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      },
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      },
+      {
+        "color": "Red",
+        "inMotion": false,
+        "reachedLastRow": false,
+        "player": "sofiab"
+      }
+    ],
+    "winner": null,
+    "moves": [],
+    "mustPass": null,
+    "startedAt": "2025-12-01T17:50:12.162Z"
+  }
+}

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const SALT = process.env.SALT || 'ludo_game_salt_2024';
+const SALT = process.env.SALT || 'tab_game_group_4_salt_2024';
 
 module.exports = {
     /**
@@ -21,27 +21,17 @@ module.exports = {
     },
 
     /**
-     * Gera um ID único para um jogo usando MD5
+     * Gera um ID único para um jogo usando SHA-256
      */
     generateGameId: function(data = {}) {
         const timestamp = Date.now().toString();
-        const random = Math.random().toString(36).substring(2);
+        const random = Math.random().toString(36).substring(2, 15);
         const value = timestamp + random + JSON.stringify(data);
         
         return crypto
-            .createHash('md5')
+            .createHash('sha256')
             .update(value)
             .digest('hex')
-            .substring(0, 16); // 16 caracteres são suficientes
-    },
-
-    /**
-     * Gera um token simples (opcional para futuras funcionalidades)
-     */
-    generateToken: function(userId) {
-        return crypto
-            .createHash('md5')
-            .update(userId + Date.now().toString() + SALT)
-            .digest('hex');
+            .substring(0, 16); // 16 caracteres
     }
 };

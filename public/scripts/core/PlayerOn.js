@@ -2,12 +2,11 @@
  * @file PlayerOn.js
  * @description Online multiplayer system for Tâb game
  * Integrates with existing classification system and game flow
- * Updated to use ClientAPI for server communication
+ * Updated to use ClientAPI for server communication and handle game flow properly
  */
 
 class OnlineGameManager {
     constructor() {
-        // Usar ClientAPI para comunicação com servidores
         this.clientAPI = window.ClientAPI;
         this.currentGame = null;
         this.playerNick = null;
@@ -16,6 +15,18 @@ class OnlineGameManager {
         this.isConnected = false;
         this.isMyTurn = false;
         this.currentServer = 'group'; // Default
+        this.gameBoard = null;
+        
+        // Server state tracking
+        this.serverState = {
+            dice: null,
+            step: 'from',
+            selected: [],
+            mustPass: false,
+            turn: null,
+            initial: null,
+            pieces: []
+        };
         
         this.initialize();
     }
@@ -24,39 +35,27 @@ class OnlineGameManager {
      * Initialize online game system
      */
     initialize() {
-        this.loadPlayerCredentials();
         console.log('Online game manager initialized - Using ClientAPI');
+        
+        // Load any saved credentials
+        this.loadPlayerCredentials();
     }
 
     /**
-     * Load player credentials from localStorage
+     * Load player credentials from AuthManager
      */
     loadPlayerCredentials() {
-        this.playerNick = localStorage.getItem('tabOnlineNick');
-        this.playerPassword = localStorage.getItem('tabOnlinePassword');
-        this.currentServer = localStorage.getItem('tabOnlineServer') || 'group';
-        
-        // Configurar servidor salvo
-        if (this.clientAPI) {
-            this.clientAPI.setServer(this.currentServer);
+        if (window.AuthManager) {
+            // Get current server from pending setup
+            if (window.pendingOnlineSetup) {
+                this.currentServer = window.pendingOnlineSetup.serverKey;
+                const creds = window.AuthManager.getCredentials(this.currentServer);
+                if (creds) {
+                    this.playerNick = creds.nick;
+                    this.playerPassword = creds.password;
+                }
+            }
         }
-    }
-
-    /**
-     * Save player credentials to localStorage
-     */
-    savePlayerCredentials(nick, password, server = null) {
-        this.playerNick = nick;
-        this.playerPassword = password;
-        
-        if (server) {
-            this.currentServer = server;
-            this.clientAPI.setServer(server);
-        }
-        
-        localStorage.setItem('tabOnlineNick', nick);
-        localStorage.setItem('tabOnlinePassword', password);
-        localStorage.setItem('tabOnlineServer', this.currentServer);
     }
 
     /**
@@ -64,160 +63,61 @@ class OnlineGameManager {
      * @param {string} serverKey - 'official' ou 'group'
      */
     switchServer(serverKey) {
-        if (!this.clientAPI) return false;
+        if (!this.clientAPI) {
+            console.error('ClientAPI not available');
+            return false;
+        }
         
         const switched = this.clientAPI.setServer(serverKey);
         if (switched) {
             this.currentServer = serverKey;
             console.log(`Switched to server: ${serverKey}`);
             
-            // Salvar preferência
-            localStorage.setItem('tabOnlineServer', serverKey);
+            // Update credentials for new server
+            if (window.AuthManager) {
+                const creds = window.AuthManager.getCredentials(serverKey);
+                if (creds) {
+                    this.playerNick = creds.nick;
+                    this.playerPassword = creds.password;
+                }
+            }
         }
         return switched;
     }
 
     /**
-     * Get current server info
-     */
-    getServerInfo() {
-        if (!this.clientAPI) return null;
-        return this.clientAPI.getServerInfo();
-    }
-
-    /**
-     * Get server URL
-     */
-    get serverUrl() {
-        const info = this.getServerInfo();
-        return info ? info.url : '';
-    }
-
-    /**
-     * Start online game - called from setup.js
+     * Start online game - called from setup.js after login
      */
     async startOnlineGame(boardSize, firstPlayer) {
         try {
             console.log('Starting online game...');
-
-            // Ensure player is registered
+            
+            // Ensure we have credentials
             if (!this.playerNick || !this.playerPassword) {
-                await this.showRegistrationModal();
-                if (!this.playerNick || !this.playerPassword) {
-                    throw new Error('Registration cancelled');
-                }
+                throw new Error('Not logged in. Please login first.');
             }
-
+            
             // Join game on server
-            await this.joinGame(boardSize);
-
+            const joinResult = await this.joinGame(boardSize);
+            
+            if (!joinResult || joinResult.error) {
+                throw new Error(joinResult?.error || 'Failed to join game');
+            }
+            
+            console.log('Game joined successfully:', joinResult);
+            
             // Initialize game board for online play
-            this.initializeOnlineBoard(boardSize);
-
-            this.showMessage('🔄 Procurando oponente...');
-
+            this.initializeOnlineBoard(boardSize, firstPlayer);
+            
+            this.showMessage('🔄 Searching for opponent...');
+            
             return true;
-
+            
         } catch (error) {
             console.error('Error starting online game:', error);
-            this.showError('Erro ao iniciar jogo online: ' + error.message);
+            this.showError('Failed to start online game: ' + error.message);
             return false;
         }
-    }
-
-    /**
-     * Show registration modal
-     */
-    async showRegistrationModal() {
-        return new Promise((resolve) => {
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.style.display = 'flex';
-            modal.innerHTML = `
-                <div class="setup-container">
-                    <h2>Registo para Jogo Online</h2>
-                    
-                    <div class="form-group">
-                        <label>Servidor:</label>
-                        <div class="server-selector">
-                            <button type="button" class="server-btn ${this.currentServer === 'group' ? 'active' : ''}" 
-                                    data-server="group">Group Server (8104)</button>
-                            <button type="button" class="server-btn ${this.currentServer === 'official' ? 'active' : ''}" 
-                                    data-server="official">Official Server (8008)</button>
-                        </div>
-                    </div>
-                    
-                    <form id="registerForm">
-                        <div class="form-group">
-                            <label for="onlineNick">Nickname:</label>
-                            <input type="text" id="onlineNick" required maxlength="20" placeholder="Seu nickname">
-                        </div>
-                        <div class="form-group">
-                            <label for="onlinePassword">Password:</label>
-                            <input type="password" id="onlinePassword" required placeholder="Sua password">
-                        </div>
-                        <div class="setup-controls">
-                            <button type="submit" class="btn-primary">Registar & Jogar</button>
-                            <button type="button" class="btn-secondary" id="cancelOnline">Cancelar</button>
-                        </div>
-                    </form>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-
-            const registerForm = modal.querySelector('#registerForm');
-            const cancelBtn = modal.querySelector('#cancelOnline');
-            const serverBtns = modal.querySelectorAll('.server-btn');
-
-            // Server selection
-            serverBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    serverBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    const serverKey = btn.dataset.server;
-                    this.switchServer(serverKey);
-                });
-            });
-
-            registerForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const nick = document.getElementById('onlineNick').value;
-                const password = document.getElementById('onlinePassword').value;
-
-                try {
-                    await this.register(nick, password);
-                    this.savePlayerCredentials(nick, password, this.currentServer);
-                    modal.remove();
-                    resolve(true);
-                } catch (error) {
-                    this.showError('Erro no registo: ' + error.message);
-                }
-            });
-
-            cancelBtn.addEventListener('click', () => {
-                modal.remove();
-                resolve(false);
-            });
-        });
-    }
-
-    /**
-     * REGISTER - Register player on server
-     */
-    async register(nick, password) {
-        if (!this.clientAPI) {
-            throw new Error('ClientAPI not available');
-        }
-        
-        const response = await this.clientAPI.register(nick, password);
-        
-        if (response.error) {
-            throw new Error(response.error);
-        }
-
-        console.log('Player registered successfully on', this.currentServer, ':', nick);
-        return response;
     }
 
     /**
@@ -226,6 +126,10 @@ class OnlineGameManager {
     async joinGame(size) {
         if (!this.clientAPI) {
             throw new Error('ClientAPI not available');
+        }
+        
+        if (!this.playerNick || !this.playerPassword) {
+            throw new Error('Player not authenticated');
         }
 
         const response = await this.clientAPI.join(
@@ -255,12 +159,515 @@ class OnlineGameManager {
     }
 
     /**
+     * UPDATE - Start listening for game updates via Server-Sent Events
+     */
+    startGameUpdates() {
+        if (!this.currentGame || !this.clientAPI) {
+            console.error('Cannot start updates: missing game or ClientAPI');
+            return;
+        }
+
+        // Stop previous stream if exists
+        if (this.stopUpdateStream) {
+            this.stopUpdateStream();
+        }
+
+        console.log(`Starting SSE for game ${this.currentGame.id}, player ${this.playerNick}`);
+        
+        // Start new stream using ClientAPI
+        this.stopUpdateStream = this.clientAPI.startUpdateStream(
+            this.currentGame.id,
+            this.playerNick,
+            (update) => {
+                console.log('Game update received:', update);
+                this.handleServerUpdate(update);
+            },
+            (error) => {
+                console.error('SSE error:', error);
+                this.showError('Connection to server lost');
+                this.isConnected = false;
+                
+                // Try to reconnect after delay
+                setTimeout(() => {
+                    if (this.currentGame) {
+                        this.startGameUpdates();
+                    }
+                }, 5000);
+            }
+        );
+
+        this.isConnected = true;
+        console.log('Started listening for game updates via ClientAPI');
+    }
+
+    /**
+     * Handle server updates
+     */
+    handleServerUpdate(update) {
+        if (update.error) {
+            this.showError(update.error);
+            return;
+        }
+        
+        console.log('Processing server update:', update);
+        
+        // Update server state
+        this.updateServerState(update);
+        
+        // Handle specific update types
+        if (update.winner) {
+            this.handleGameEnd(update.winner);
+            return;
+        }
+        
+        if (update.dice) {
+            this.handleDiceUpdate(update.dice);
+        }
+        
+        if (update.pieces) {
+            this.handlePiecesUpdate(update.pieces);
+        }
+        
+        if (update.selected) {
+            this.handleSelectedUpdate(update.selected);
+        }
+        
+        if (update.turn) {
+            this.handleTurnUpdate(update.turn);
+        }
+        
+        if (update.step) {
+            this.handleStepUpdate(update.step);
+        }
+        
+        if (update.mustPass !== undefined) {
+            this.handleMustPassUpdate(update.mustPass);
+        }
+        
+        if (update.cell !== undefined) {
+            this.handleCellUpdate(update.cell);
+        }
+        
+        // Update UI
+        this.updateGameUI();
+    }
+    
+    /**
+     * Update server state from update
+     */
+    updateServerState(update) {
+        // Update each property if present in update
+        if (update.dice !== undefined) this.serverState.dice = update.dice;
+        if (update.step !== undefined) this.serverState.step = update.step;
+        if (update.selected !== undefined) this.serverState.selected = update.selected;
+        if (update.mustPass !== undefined) this.serverState.mustPass = update.mustPass;
+        if (update.turn !== undefined) this.serverState.turn = update.turn;
+        if (update.initial !== undefined) this.serverState.initial = update.initial;
+        if (update.pieces !== undefined) this.serverState.pieces = update.pieces;
+        
+        // Update isMyTurn
+        this.isMyTurn = (update.turn === this.playerNick);
+        
+        console.log('Updated server state:', this.serverState);
+    }
+    
+    /**
+     * Handle dice update
+     */
+    handleDiceUpdate(dice) {
+        console.log('Dice update:', dice);
+        
+        // Update dice in game board
+        if (this.gameBoard && dice && dice.value) {
+            this.gameBoard.setLastRoll({ value: dice.value, repeats: dice.keepPlaying });
+            this.gameBoard.diceRolled = true;
+            
+            // Update dice display
+            const diceResult = document.getElementById('diceResult');
+            if (diceResult) {
+                const names = { 1: 'Tâb', 2: 'Itneyn', 3: 'Teláteh', 4: 'Arba\'ah', 6: 'Sitteh' };
+                diceResult.innerHTML = `
+                    <div class="dice-result-info">
+                        <div class="dice-value">Dado: ${dice.value} (${names[dice.value]})</div>
+                        ${dice.keepPlaying ? '<div class="dice-repeats">Pode lançar novamente!</div>' : ''}
+                    </div>
+                `;
+            }
+            
+            // Show message
+            const msg = `Dice rolled: ${dice.value} (${names[dice.value]})${dice.keepPlaying ? ' - Roll again!' : ''}`;
+            this.showMessage(msg);
+        }
+    }
+    
+    /**
+     * Handle pieces update
+     */
+    handlePiecesUpdate(pieces) {
+        console.log('Pieces update received');
+        
+        if (!this.gameBoard || !pieces) return;
+        
+        // Convert server pieces format to board format
+        this.updateBoardFromServerPieces(pieces);
+        
+        // Re-render board
+        this.gameBoard.render();
+    }
+    
+    /**
+     * Handle selected cells update
+     */
+    handleSelectedUpdate(selected) {
+        console.log('Selected cells:', selected);
+        
+        if (selected && selected.length > 0) {
+            this.highlightCells(selected);
+        }
+    }
+    
+    /**
+     * Handle turn update
+     */
+    handleTurnUpdate(turn) {
+        console.log('Turn update:', turn);
+        
+        this.isMyTurn = (turn === this.playerNick);
+        
+        if (this.gameBoard) {
+            // Update current player in game board
+            const isPlayer1 = (this.serverState.initial === this.playerNick);
+            this.gameBoard.currentPlayer = isPlayer1 ? 'player-1' : 'player-2';
+            
+            // Show message
+            if (this.isMyTurn) {
+                this.showMessage('Your turn!');
+            } else {
+                const opponent = this.getOpponentName();
+                this.showMessage(`${opponent}'s turn`);
+            }
+        }
+    }
+    
+    /**
+     * Handle step update
+     */
+    handleStepUpdate(step) {
+        console.log('Step update:', step);
+        
+        // Update game state based on step
+        if (step === 'from') {
+            if (this.gameBoard) {
+                this.gameBoard.gameState = GameBoard.GAME_STATES.IDLE;
+                this.gameBoard.selectedTokenIndex = null;
+            }
+        } else if (step === 'to') {
+            if (this.gameBoard) {
+                this.gameBoard.gameState = GameBoard.GAME_STATES.TOKEN_SELECTED;
+            }
+        }
+    }
+    
+    /**
+     * Handle must pass update
+     */
+    handleMustPassUpdate(mustPass) {
+        console.log('Must pass update:', mustPass);
+        
+        if (mustPass && this.isMyTurn) {
+            this.showMessage('You must pass your turn');
+            
+            // Auto-pass after delay
+            setTimeout(() => {
+                if (this.isMyTurn && this.currentGame) {
+                    this.passTurn();
+                }
+            }, 2000);
+        }
+    }
+    
+    /**
+     * Handle cell update
+     */
+    handleCellUpdate(cell) {
+        console.log('Cell update:', cell);
+        
+        // Handle cell selection or movement
+        if (this.gameBoard && this.serverState.step === 'from') {
+            // Player selected a piece
+            this.gameBoard.selectedTokenIndex = cell;
+        }
+    }
+    
+    /**
+     * Handle game end
+     */
+    handleGameEnd(winner) {
+        console.log('Game ended. Winner:', winner);
+        
+        const isWin = winner === this.playerNick;
+        
+        // Show victory modal
+        if (this.gameBoard) {
+            const winnerName = isWin ? 'You' : this.getOpponentName();
+            this.gameBoard.showVictoryModal(winnerName, false);
+        }
+        
+        // Record game for classification
+        if (window.classification) {
+            const opponent = this.getOpponentName();
+            const gameDuration = this.gameBoard ? Math.floor((Date.now() - this.gameBoard.gameStartTime) / 1000) : 0;
+            
+            window.classification.recordGame(
+                this.playerNick,
+                opponent,
+                winner,
+                gameDuration,
+                isWin ? this.gameBoard?.cols || 9 : 0,
+                this.gameBoard?.cols || 9,
+                this.currentServer === 'official' ? 'pvpOS' : 'pvpGS',
+                false,
+                null
+            );
+        }
+        
+        // Clean up
+        this.stopGameUpdates();
+        this.currentGame = null;
+        this.isMyTurn = false;
+    }
+
+    /**
+     * Initialize online game board
+     */
+    initializeOnlineBoard(boardSize, firstPlayer) {
+        console.log('Initializing online board with size:', boardSize);
+        
+        // Clear any existing game
+        if (window.game && window.game.stopGameUpdates) {
+            window.game.stopGameUpdates();
+        }
+        
+        // Create game board with online mode
+        const options = {
+            mode: this.currentServer === 'official' ? 'pvpOS' : 'pvpGS',
+            firstPlayer: firstPlayer || 'player-1',
+            isOnline: true
+        };
+        
+        if (typeof generateBoard === 'function') {
+            this.gameBoard = generateBoard(boardSize, options);
+            window.game = this.gameBoard;
+            
+            // Set up online-specific event handlers
+            this.setupOnlineEventHandlers();
+            
+            console.log('Online game board initialized:', this.gameBoard);
+        }
+    }
+    
+    /**
+     * Set up online-specific event handlers
+     */
+    setupOnlineEventHandlers() {
+        if (!this.gameBoard) return;
+        
+        // Override dice roll handler for online play
+        const originalHandleStickRoll = this.gameBoard.handleStickRoll;
+        this.gameBoard.handleStickRoll = (roll) => {
+            // Call original handler
+            originalHandleStickRoll.call(this.gameBoard, roll);
+            
+            // Send roll to server if it's our turn
+            if (this.isMyTurn && this.currentGame) {
+                this.rollDice();
+            }
+        };
+        
+        // Override move handler for online play
+        const originalMovePiece = this.gameBoard.movePiece;
+        this.gameBoard.movePiece = (from, to, diceValue) => {
+            // Call original handler
+            const result = originalMovePiece.call(this.gameBoard, from, to, diceValue);
+            
+            // Send move to server if it's our turn
+            if (result && this.isMyTurn && this.currentGame) {
+                this.notifyMove(from, to);
+            }
+            
+            return result;
+        };
+        
+        // Override pass turn handler
+        const originalPassTurn = this.gameBoard.passTurn;
+        this.gameBoard.passTurn = () => {
+            // Call original handler
+            originalPassTurn.call(this.gameBoard);
+            
+            // Send pass to server if it's our turn
+            if (this.isMyTurn && this.currentGame) {
+                this.passTurn();
+            }
+        };
+        
+        // Override resign handler
+        const originalResign = this.gameBoard.resign;
+        this.gameBoard.resign = () => {
+            // Send leave to server
+            if (this.currentGame) {
+                this.leaveGame();
+            }
+            
+            // Call original handler
+            originalResign.call(this.gameBoard);
+        };
+    }
+
+    /**
+     * Update board from server pieces format
+     */
+    updateBoardFromServerPieces(serverPieces) {
+        if (!this.gameBoard || !serverPieces) return;
+        
+        const board = this.gameBoard.board;
+        const cols = board.cols;
+        
+        // Clear board
+        for (let i = 0; i < board.content.length; i++) {
+            board.content[i] = null;
+        }
+        
+        // Place pieces according to server data
+        serverPieces.forEach((pieceData, index) => {
+            if (pieceData && pieceData.color) {
+                // Convert server color to player ID
+                const player = pieceData.color === 'Blue' ? 'player-1' : 'player-2';
+                
+                // Determine piece state
+                let state = Piece.MOVED;
+                if (!pieceData.inMotion) {
+                    state = Piece.UNMOVED;
+                } else if (pieceData.reachedLastRow) {
+                    state = Piece.PROMOTED;
+                }
+                
+                // Create piece
+                board.content[index] = new Piece(player, index, state);
+            }
+        });
+    }
+
+    /**
+     * ROLL - Roll dice in online game
+     */
+    async rollDice() {
+        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) {
+            console.log('Cannot roll: not my turn or no game');
+            return;
+        }
+
+        try {
+            console.log('Rolling dice online...');
+            
+            const response = await this.clientAPI.roll(
+                this.playerNick,
+                this.playerPassword,
+                this.currentGame.id,
+                0 // Cell parameter for roll
+            );
+
+            if (response.error) {
+                this.showError('Roll error: ' + response.error);
+                return;
+            }
+
+            console.log('Dice rolled online:', response);
+
+        } catch (error) {
+            this.showError('Communication error: ' + error.message);
+        }
+    }
+
+    /**
+     * NOTIFY - Notify server of a move
+     */
+    async notifyMove(fromCell, toCell) {
+        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) {
+            console.log('Cannot notify move: not my turn or no game');
+            return;
+        }
+
+        try {
+            console.log('Notifying move:', { fromCell, toCell });
+            
+            // Send the cell that was clicked (from or to depending on step)
+            let cellToSend = fromCell;
+            if (this.serverState.step === 'to') {
+                cellToSend = toCell;
+            }
+            
+            const response = await this.clientAPI.notify(
+                this.playerNick,
+                this.playerPassword,
+                this.currentGame.id,
+                cellToSend
+            );
+
+            if (response.error) {
+                this.showError('Move error: ' + response.error);
+                return;
+            }
+
+            console.log('Move notified to server:', response);
+
+        } catch (error) {
+            this.showError('Communication error: ' + error.message);
+        }
+    }
+
+    /**
+     * PASS - Pass turn in online game
+     */
+    async passTurn() {
+        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) {
+            console.log('Cannot pass: not my turn or no game');
+            return;
+        }
+
+        try {
+            console.log('Passing turn online...');
+            
+            const response = await this.clientAPI.passTurn(
+                this.playerNick,
+                this.playerPassword,
+                this.currentGame.id,
+                0
+            );
+
+            if (response.error) {
+                this.showError('Pass error: ' + response.error);
+                return;
+            }
+
+            console.log('Turn passed online:', response);
+
+        } catch (error) {
+            this.showError('Communication error: ' + error.message);
+        }
+    }
+
+    /**
      * LEAVE - Leave current game
      */
     async leaveGame() {
-        if (!this.currentGame || !this.clientAPI) return;
+        if (!this.currentGame || !this.clientAPI) {
+            console.log('No game to leave');
+            return;
+        }
 
         try {
+            console.log('Leaving game...');
+            
             const response = await this.clientAPI.leave(
                 this.playerNick,
                 this.playerPassword,
@@ -281,120 +688,6 @@ class OnlineGameManager {
     }
 
     /**
-     * ROLL - Roll dice in online game
-     */
-    async rollDice() {
-        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) return;
-
-        try {
-            const response = await this.clientAPI.roll(
-                this.playerNick,
-                this.playerPassword,
-                this.currentGame.id,
-                0 // Cell parameter for roll
-            );
-
-            if (response.error) {
-                this.showError('Erro ao lançar dados: ' + response.error);
-                return;
-            }
-
-            console.log('Dice rolled online:', response);
-            this.handleServerResponse(response);
-
-        } catch (error) {
-            this.showError('Erro de comunicação: ' + error.message);
-        }
-    }
-
-    /**
-     * PASS - Pass turn in online game
-     */
-    async passTurn() {
-        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) return;
-
-        try {
-            const response = await this.clientAPI.passTurn(
-                this.playerNick,
-                this.playerPassword,
-                this.currentGame.id,
-                0
-            );
-
-            if (response.error) {
-                this.showError('Erro ao passar vez: ' + response.error);
-                return;
-            }
-
-            console.log('Turn passed online');
-            this.handleServerResponse(response);
-
-        } catch (error) {
-            this.showError('Erro de comunicação: ' + error.message);
-        }
-    }
-
-    /**
-     * NOTIFY - Notify server of a move
-     */
-    async notifyMove(fromCell, toCell) {
-        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) return;
-
-        try {
-            // Encode move as a single cell value
-            const moveCode = fromCell * 100 + toCell;
-            
-            const response = await this.clientAPI.notify(
-                this.playerNick,
-                this.playerPassword,
-                this.currentGame.id,
-                moveCode
-            );
-
-            if (response.error) {
-                this.showError('Erro na jogada: ' + response.error);
-                return;
-            }
-
-            console.log('Move notified to server:', { fromCell, toCell, moveCode });
-            this.handleServerResponse(response);
-
-        } catch (error) {
-            this.showError('Erro de comunicação: ' + error.message);
-        }
-    }
-
-    /**
-     * UPDATE - Start listening for game updates via Server-Sent Events
-     */
-    startGameUpdates() {
-        if (!this.currentGame || !this.clientAPI) return;
-
-        // Stop previous stream if exists
-        if (this.stopUpdateStream) {
-            this.stopUpdateStream();
-        }
-
-        // Start new stream using ClientAPI
-        this.stopUpdateStream = this.clientAPI.startUpdateStream(
-            this.currentGame.id,
-            this.playerNick,
-            (update) => {
-                console.log('Game update received:', update);
-                this.handleServerResponse(update);
-            },
-            (error) => {
-                console.error('SSE error:', error);
-                this.showError('Conexão com o servidor perdida');
-                this.isConnected = false;
-            }
-        );
-
-        this.isConnected = true;
-        console.log('Started listening for game updates via ClientAPI');
-    }
-
-    /**
      * Stop listening for game updates
      */
     stopGameUpdates() {
@@ -404,223 +697,6 @@ class OnlineGameManager {
         }
         this.isConnected = false;
         console.log('Stopped listening for game updates');
-    }
-
-    /**
-     * Handle server responses and updates
-     */
-    handleServerResponse(response) {
-        if (response.error) {
-            this.showError(response.error);
-            return;
-        }
-
-        // Update game state
-        this.updateGameState(response);
-
-        // Handle specific response types
-        if (response.winner) {
-            this.handleGameEnd(response.winner);
-            return;
-        }
-
-        if (response.mustPass) {
-            this.handleMustPass();
-        }
-
-        if (response.dice) {
-            this.handleDiceResult(response.dice);
-        }
-
-        if (response.selected) {
-            this.handleSelectedCells(response.selected);
-        }
-
-        // Update UI
-        this.updateGameUI();
-    }
-
-    /**
-     * Update game state from server response
-     */
-    updateGameState(serverData) {
-        if (!this.currentGame) return;
-
-        // Update basic game state
-        if (serverData.turn !== undefined) {
-            this.currentGame.turn = serverData.turn;
-            this.isMyTurn = serverData.turn === this.playerNick;
-        }
-
-        if (serverData.pieces) {
-            this.currentGame.pieces = serverData.pieces;
-        }
-
-        if (serverData.players) {
-            this.currentGame.players = serverData.players;
-        }
-
-        // Update board if pieces changed
-        if (serverData.pieces && window.game) {
-            this.updateBoard();
-        }
-    }
-
-    /**
-     * Update game board with server pieces data
-     */
-    updateBoard() {
-        if (!this.currentGame.pieces || !window.game) return;
-
-        const board = window.game.board;
-        const cols = board.cols;
-
-        // Clear board
-        for (let i = 0; i < board.content.length; i++) {
-            board.content[i] = null;
-        }
-
-        // Place pieces according to server data
-        this.currentGame.pieces.forEach((pieceCode, index) => {
-            if (pieceCode !== null && pieceCode !== 0) {
-                const player = pieceCode === 1 ? 'player-1' : 'player-2';
-                const state = this.determinePieceState(index, player, cols);
-                board.content[index] = new Piece(player, index, state);
-            }
-        });
-
-        // Re-render board
-        window.game.render();
-    }
-
-    /**
-     * Determine piece state based on position
-     */
-    determinePieceState(index, player, cols) {
-        const row = Math.floor(index / cols);
-        const isStartingRow = (player === 'player-1' && row === 3) || 
-                             (player === 'player-2' && row === 0);
-        
-        return isStartingRow ? 'unmoved' : 'moved';
-    }
-
-    /**
-     * Update game UI
-     */
-    updateGameUI() {
-        if (!window.game) return;
-
-        // Update turn message
-        if (this.isMyTurn) {
-            window.game.showMessage('Sua vez de jogar!');
-        } else {
-            const opponent = this.getOpponentName();
-            window.game.showMessage(`Vez de ${opponent}`);
-        }
-
-        // Update control buttons
-        this.updateControlButtons();
-    }
-
-    /**
-     * Update control buttons based on game state
-     */
-    updateControlButtons() {
-        const rollBtn = document.getElementById('rollDiceBtn');
-        const passBtn = document.getElementById('passBtn');
-
-        if (rollBtn) {
-            rollBtn.disabled = !this.isMyTurn;
-            rollBtn.style.opacity = this.isMyTurn ? '1' : '0.5';
-        }
-
-        if (passBtn) {
-            passBtn.disabled = !this.isMyTurn;
-            passBtn.style.opacity = this.isMyTurn ? '1' : '0.5';
-        }
-    }
-
-    /**
-     * Handle dice result from server
-     */
-    handleDiceResult(diceValue) {
-        console.log('Dice result from server:', diceValue);
-        
-        // Update UI with dice result
-        const diceResult = document.getElementById('diceResult');
-        if (diceResult) {
-            const names = { 1: 'Tâb', 2: 'Itneyn', 3: 'Teláteh', 4: 'Arba\'ah', 6: 'Sitteh' };
-            diceResult.innerHTML = `
-                <div class="dice-result-info">
-                    <div class="dice-value">Dado: ${diceValue} (${names[diceValue]})</div>
-                    ${this.isMyTurn ? '<div class="dice-repeats">Faça sua jogada!</div>' : ''}
-                </div>
-            `;
-        }
-
-        if (window.game) {
-            window.game.diceRolled = true;
-            window.lastRoll = { value: diceValue };
-        }
-    }
-
-    /**
-     * Handle game end
-     */
-    handleGameEnd(winner) {
-        console.log('Game ended. Winner:', winner);
-        
-        const isWin = winner === this.playerNick;
-        
-        // Show victory modal
-        if (window.game) {
-            window.game.showVictoryModal(winner, false);
-        }
-
-        // Record game for classification
-        if (window.classification) {
-            const opponent = this.getOpponentName();
-            window.classification.recordGame(
-                this.playerNick,
-                opponent,
-                winner,
-                Math.floor((Date.now() - window.game.gameStartTime) / 1000),
-                isWin ? 9 : 0,
-                9,
-                this.currentServer === 'official' ? 'pvpOS' : 'pvpGS',
-                false,
-                null
-            );
-        }
-
-        // Clean up
-        this.stopGameUpdates();
-        this.currentGame = null;
-        this.isMyTurn = false;
-    }
-
-    /**
-     * Handle must pass situation
-     */
-    handleMustPass() {
-        this.showMessage('Você deve passar a vez');
-        
-        // Auto-pass after short delay
-        if (this.isMyTurn) {
-            setTimeout(() => {
-                if (this.isMyTurn && this.currentGame) {
-                    this.passTurn();
-                }
-            }, 2000);
-        }
-    }
-
-    /**
-     * Handle selected cells (for move selection)
-     */
-    handleSelectedCells(selected) {
-        console.log('Selected cells:', selected);
-        this.highlightCells(selected);
     }
 
     /**
@@ -642,16 +718,47 @@ class OnlineGameManager {
     }
 
     /**
-     * Initialize online game board
+     * Update game UI
      */
-    initializeOnlineBoard(boardSize) {
-        // Use existing game initialization with online mode
-        if (typeof generateBoard === 'function') {
-            const options = {
-                mode: this.currentServer === 'official' ? 'pvpOS' : 'pvpGS',
-                firstPlayer: 'player-1'
-            };
-            window.game = generateBoard(boardSize, options);
+    updateGameUI() {
+        if (!this.gameBoard) return;
+
+        // Update turn message
+        let turnMsg;
+        if (this.isMyTurn) {
+            turnMsg = 'Your turn!';
+        } else {
+            const opponent = this.getOpponentName();
+            turnMsg = `${opponent}'s turn`;
+        }
+        
+        this.showMessage(turnMsg);
+
+        // Update control buttons
+        this.updateControlButtons();
+    }
+
+    /**
+     * Update control buttons based on game state
+     */
+    updateControlButtons() {
+        const rollBtn = document.getElementById('rollDiceBtn');
+        const passBtn = document.getElementById('passBtn');
+        const resignBtn = document.getElementById('resignBtn');
+
+        if (rollBtn) {
+            rollBtn.disabled = !this.isMyTurn || this.gameBoard.diceRolled;
+            rollBtn.style.opacity = (this.isMyTurn && !this.gameBoard.diceRolled) ? '1' : '0.5';
+        }
+
+        if (passBtn) {
+            passBtn.disabled = !this.isMyTurn || !this.gameBoard.diceRolled;
+            passBtn.style.opacity = (this.isMyTurn && this.gameBoard.diceRolled) ? '1' : '0.5';
+        }
+        
+        if (resignBtn) {
+            resignBtn.disabled = !this.currentGame;
+            resignBtn.style.opacity = this.currentGame ? '1' : '0.5';
         }
     }
 
@@ -659,71 +766,25 @@ class OnlineGameManager {
      * Get opponent name
      */
     getOpponentName() {
-        if (!this.currentGame || !this.currentGame.players) return 'Oponente';
-        return this.currentGame.players.find(p => p !== this.playerNick) || 'Oponente';
-    }
-
-    /**
-     * Make request to server
-     */
-    async makeRequest(endpoint, data) {
-        if (!this.clientAPI) {
-            throw new Error('ClientAPI not available');
+        if (!this.serverState.players || !this.playerNick) return 'Opponent';
+        
+        for (const [nick, color] of Object.entries(this.serverState.players)) {
+            if (nick !== this.playerNick) {
+                return nick;
+            }
         }
         
-        // Usar ClientAPI baseado no endpoint
-        switch(endpoint) {
-            case 'register':
-                return await this.clientAPI.register(data.nick, data.password);
-            case 'join':
-                return await this.clientAPI.join(data.nick, data.password, data.size, data.game);
-            case 'leave':
-                return await this.clientAPI.leave(data.nick, data.password, data.game);
-            case 'roll':
-                return await this.clientAPI.roll(data.nick, data.password, data.game, data.cell);
-            case 'pass':
-                return await this.clientAPI.passTurn(data.nick, data.password, data.game, data.cell);
-            case 'notify':
-                return await this.clientAPI.notify(data.nick, data.password, data.game, data.cell);
-            case 'ranking':
-                return await this.clientAPI.getRanking(data.size);
-            default:
-                throw new Error(`Unknown endpoint: ${endpoint}`);
-        }
-    }
-
-    /**
-     * RANKING - Get server ranking
-     */
-    async getRanking(group = 99, size = 20) {
-        try {
-            const response = await this.clientAPI.getRanking(size);
-            
-            if (response.error) {
-                throw new Error(response.error);
-            }
-
-            return response.ranking || [];
-        } catch (error) {
-            console.error('Error getting ranking:', error);
-            return [];
-        }
-    }
-
-    /**
-     * Test server connection
-     */
-    async testServerConnection() {
-        if (!this.clientAPI) return false;
-        return await this.clientAPI.testConnection();
+        return 'Opponent';
     }
 
     /**
      * Show message in game UI
      */
     showMessage(message) {
-        if (window.game) {
-            window.game.showMessage(message);
+        if (this.gameBoard) {
+            this.gameBoard.showMessage(message);
+        } else {
+            console.log('Game message:', message);
         }
     }
 
@@ -732,8 +793,8 @@ class OnlineGameManager {
      */
     showError(message) {
         console.error('Online game error:', message);
-        if (window.game) {
-            window.game.showMessage('❌ ' + message);
+        if (this.gameBoard) {
+            this.gameBoard.showMessage('❌ ' + message);
         }
     }
 
@@ -747,10 +808,12 @@ class OnlineGameManager {
             playerNick: this.playerNick,
             isMyTurn: this.isMyTurn,
             server: this.currentServer,
-            serverInfo: this.getServerInfo()
+            serverState: this.serverState
         };
     }
 }
 
-// Initialize online game manager
-window.onlineGameManager = new OnlineGameManager();
+// Initialize online game manager when needed
+if (!window.onlineGameManager) {
+    window.OnlineGameManager = OnlineGameManager;
+}

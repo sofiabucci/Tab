@@ -108,32 +108,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const serverKey = mode === 'pvpOS' ? 'official' : 'group';
             const serverName = mode === 'pvpOS' ? 'Official Server' : 'Group Server';
             
-            // Check if user is already logged in to this server
-            if (window.AuthManager && window.AuthManager.isLoggedInToServer(serverKey)) {
-                // User is logged in, start game directly
-                startOnlineGame(serverKey, columns, firstPlayer);
-            } else {
-                // User needs to login, store setup data and show auth modal
-                window.pendingOnlineSetup = {
-                    serverKey: serverKey,
-                    serverName: serverName,
-                    columns: columns,
-                    firstPlayer: firstPlayer,
-                    mode: mode
-                };
-                
-                // Close setup modal
-                closeSetupModal();
-                
-                // Open auth modal for this specific server
-                if (window.AuthManager) {
-                    window.AuthManager.openForServer(serverKey);
-                } else {
-                    // Fallback: show login modal directly
-                    document.getElementById('loginModal').classList.remove('hidden');
-                    showNotification(`Please login to ${serverName} to play online`, 'info', 5000);
-                }
-            }
+            // Store setup data
+            window.pendingOnlineSetup = {
+                serverKey: serverKey,
+                serverName: serverName,
+                columns: columns,
+                firstPlayer: firstPlayer,
+                mode: mode
+            };
+            
+            // Close setup modal
+            closeSetupModal();
+            
+            // Open auth modal for this specific server
+            openAuthForServer(serverKey, serverName);
+            
             return;
         }
 
@@ -142,32 +131,90 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
+     * Open authentication modal for specific server
+     */
+    function openAuthForServer(serverKey, serverName) {
+        // Use AuthManager if available
+        if (window.AuthManager) {
+            window.AuthManager.openForServer(serverKey);
+        } else {
+            // Fallback: open login modal and set server info
+            const loginModal = document.getElementById('loginModal');
+            if (loginModal) {
+                loginModal.classList.remove('hidden');
+                
+                // Update UI with server info
+                const loginTab = document.getElementById('loginTab');
+                if (loginTab) {
+                    const title = loginTab.querySelector('h2');
+                    if (title) {
+                        title.textContent = `Login to ${serverName}`;
+                    }
+                }
+                
+                // Add server info to form
+                const loginForm = document.getElementById('loginForm');
+                if (loginForm) {
+                    // Check if server info already exists
+                    let serverInfo = loginForm.querySelector('.server-info-text');
+                    if (!serverInfo) {
+                        serverInfo = document.createElement('div');
+                        serverInfo.className = 'server-info-text';
+                        serverInfo.style.marginBottom = '15px';
+                        serverInfo.style.padding = '10px';
+                        serverInfo.style.backgroundColor = '#f0f0f0';
+                        serverInfo.style.borderRadius = '5px';
+                        serverInfo.style.fontSize = '14px';
+                        loginForm.insertBefore(serverInfo, loginForm.firstChild);
+                    }
+                    serverInfo.textContent = `Playing on: ${serverName}`;
+                }
+            }
+        }
+        
+        showNotification(`Please login to ${serverName} to play online`, 'info', 5000);
+    }
+
+    /**
      * Start online game after successful login
      */
     async function startOnlineGame(serverKey, columns, firstPlayer) {
         try {
-            // Configure online manager based on selected server
-            const serverName = serverKey === 'official' ? 'Official Server' : 'Group Server';
+            console.log(`Starting online game on ${serverKey} with ${columns} columns`);
             
-            if (window.onlineGameManager) {
-                // Switch to correct server using ClientAPI
-                const switched = window.onlineGameManager.switchServer(serverKey);
-                if (!switched) {
-                    throw new Error(`Could not switch to server: ${serverKey}`);
-                }
-                
-                console.log(`Using ${serverName} via ClientAPI`);
-                
-                // Start online game
-                const success = await window.onlineGameManager.startOnlineGame(columns, firstPlayer);
-                if (success) {
-                    // Show connection status
-                    showServerStatus(serverName, true);
-                } else {
-                    showServerStatus(serverName, false);
-                }
+            // Ensure ClientAPI is available
+            if (!window.ClientAPI) {
+                throw new Error('ClientAPI not available');
+            }
+            
+            // Configure ClientAPI for the correct server
+            window.ClientAPI.setServer(serverKey);
+            
+            // Get credentials for this server
+            const credentials = window.ClientAPI.getServerCredentials(serverKey);
+            if (!credentials) {
+                throw new Error('Not logged in to this server');
+            }
+            
+            // Initialize online game manager
+            if (!window.onlineGameManager) {
+                // Create online game manager if it doesn't exist
+                window.onlineGameManager = new OnlineGameManager();
+            }
+            
+            // Configure online manager
+            const switched = window.onlineGameManager.switchServer(serverKey);
+            if (!switched) {
+                throw new Error(`Could not switch to server: ${serverKey}`);
+            }
+            
+            // Start online game
+            const success = await window.onlineGameManager.startOnlineGame(columns, firstPlayer);
+            if (success) {
+                // Show connection status
+                showServerStatus(serverName, true);
             } else {
-                throw new Error('Online game manager not available');
+                showServerStatus(serverName, false);
             }
         } catch (error) {
             console.error('Failed to start online game:', error);
@@ -427,11 +474,26 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Listen for successful login events
         document.addEventListener('auth:login', (e) => {
-            if (window.pendingOnlineSetup) {
+            if (window.pendingOnlineSetup && e.detail && e.detail.server) {
                 // Check if login is for the correct server
-                if (e.detail && e.detail.server === window.pendingOnlineSetup.serverKey) {
+                if (e.detail.server === window.pendingOnlineSetup.serverKey) {
                     // Resume online setup
-                    setTimeout(resumeOnlineSetup, 500);
+                    setTimeout(() => {
+                        resumeOnlineSetup();
+                    }, 500);
+                }
+            }
+        });
+        
+        // Listen for successful registration events
+        document.addEventListener('auth:register', (e) => {
+            if (window.pendingOnlineSetup && e.detail && e.detail.server) {
+                // Check if registration is for the correct server
+                if (e.detail.server === window.pendingOnlineSetup.serverKey) {
+                    // Resume online setup
+                    setTimeout(() => {
+                        resumeOnlineSetup();
+                    }, 500);
                 }
             }
         });

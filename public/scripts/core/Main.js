@@ -67,7 +67,8 @@ class GameBoard {
         this.options = {
             mode: options.mode || 'pvpL',
             difficulty: options.difficulty || 'medium',
-            firstPlayer: options.firstPlayer || Player.P1
+            firstPlayer: options.firstPlayer || Player.P1,
+            isOnline: options.mode === 'pvpOS' || options.mode === 'pvpGS'
         };
 
         /** @type {string} */
@@ -81,6 +82,9 @@ class GameBoard {
         /** @type {boolean} */
         this.diceRolled = false;
 
+        /** @type {boolean} Track if online game is initialized */
+        this.onlineInitialized = false;
+
         this.board.initDOM();
         this.render();
 
@@ -90,9 +94,208 @@ class GameBoard {
             window.enableStickRolling();
         }
 
+        // Initialize online game if needed
+        if (this.options.isOnline) {
+            this.initializeOnlineGame();
+        }
+
         // AI starts automatically if first player
         if (this.isAITurn()) {
             setTimeout(() => this.triggerAIRoll(), 1000);
+        }
+    }
+
+    /**
+     * Initialize online game system
+     */
+    initializeOnlineGame() {
+        console.log('Initializing online game mode:', this.options.mode);
+        
+        // Determine server based on mode
+        const serverKey = this.options.mode === 'pvpOS' ? 'official' : 'group';
+        
+        // Get credentials for this server
+        const credentials = GameBoard.getServerCredentials(serverKey);
+        if (!credentials) {
+            console.error('No credentials found for server:', serverKey);
+            this.showMessage('Please login to play online');
+            return;
+        }
+        
+        // Ensure online game manager exists
+        if (!window.onlineGameManager) {
+            console.error('Online game manager not available');
+            this.showMessage('Online system not available');
+            return;
+        }
+        
+        // Switch to correct server
+        window.onlineGameManager.switchServer(serverKey);
+        
+        // Set up online-specific overrides
+        this.setupOnlineOverrides();
+        
+        this.onlineInitialized = true;
+        console.log('Online game initialized for server:', serverKey);
+    }
+
+    /**
+     * Set up method overrides for online gameplay
+     */
+    setupOnlineOverrides() {
+        if (!window.onlineGameManager) return;
+        
+        const onlineManager = window.onlineGameManager;
+        
+        // Store original methods
+        this.originalMovePiece = this.movePiece;
+        this.originalPassTurn = this.passTurn;
+        this.originalResign = this.resign;
+        this.originalHandleStickRoll = this.handleStickRoll;
+        
+        // Override movePiece to send to server
+        this.movePiece = (from, to, diceValue) => {
+            console.log('Online movePiece called:', { from, to, diceValue });
+            
+            // First validate locally
+            if (!this.isValidMove(from, to, diceValue || this.getLastRoll())) {
+                this.showMessage('Invalid move');
+                return false;
+            }
+            
+            // Execute move locally
+            const result = this.originalMovePiece.call(this, from, to, diceValue);
+            
+            // Send to server if successful
+            if (result && onlineManager.isMyTurn) {
+                onlineManager.notifyMove(from, to);
+            }
+            
+            return result;
+        };
+        
+        // Override passTurn to send to server
+        this.passTurn = () => {
+            console.log('Online passTurn called');
+            
+            // Validate locally first
+            if (this.checkValidMoves()) {
+                this.showMessage('You have valid moves - cannot pass!');
+                return;
+            }
+            
+            // Execute locally
+            this.originalPassTurn.call(this);
+            
+            // Send to server if it's our turn
+            if (onlineManager.isMyTurn) {
+                onlineManager.passTurn();
+            }
+        };
+        
+        // Override resign to leave online game
+        this.resign = () => {
+            console.log('Online resign called');
+            
+            // Leave online game
+            if (onlineManager.currentGame) {
+                onlineManager.leaveGame();
+            }
+            
+            // Execute original resign
+            this.originalResign.call(this);
+        };
+        
+        // Override handleStickRoll to send to server
+        this.handleStickRoll = (roll) => {
+            console.log('Online handleStickRoll called:', roll);
+            
+            // Execute original
+            this.originalHandleStickRoll.call(this, roll);
+            
+            // Send roll to server if it's our turn
+            if (onlineManager.isMyTurn && !this.diceRolled) {
+                onlineManager.rollDice();
+            }
+        };
+        
+        console.log('Online method overrides setup complete');
+    }
+
+    /**
+     * Check if game is in online mode
+     */
+    isOnlineGame() {
+        return this.options.isOnline;
+    }
+
+    /**
+     * Handle online board click
+     */
+    handleOnlineClick(i) {
+        if (!this.gameActive) {
+            this.showMessage('Game over!');
+            return 100;
+        }
+
+        // Check if it's our turn in online game
+        if (window.onlineGameManager && !window.onlineGameManager.isMyTurn) {
+            this.showMessage("Wait for opponent's move");
+            return 102;
+        }
+
+        // Check if dice has been rolled
+        if (!this.diceRolled || !this.getLastRoll()) {
+            this.showMessage('Roll dice first!');
+            return 101;
+        }
+
+        // Use standard click handling
+        return this.handleClick(i);
+    }
+
+    /**
+     * Update online game UI
+     */
+    updateOnlineUI() {
+        if (!this.isOnlineGame() || !window.onlineGameManager) return;
+        
+        const onlineManager = window.onlineGameManager;
+        
+        // Update dice button
+        const rollBtn = document.getElementById('rollDiceBtn');
+        if (rollBtn) {
+            if (onlineManager.isMyTurn && !this.diceRolled) {
+                rollBtn.disabled = false;
+                rollBtn.style.opacity = '1';
+            } else {
+                rollBtn.disabled = true;
+                rollBtn.style.opacity = '0.5';
+            }
+        }
+        
+        // Update pass button
+        const passBtn = document.getElementById('passBtn');
+        if (passBtn) {
+            if (onlineManager.isMyTurn && this.diceRolled) {
+                passBtn.disabled = false;
+                passBtn.style.opacity = '1';
+            } else {
+                passBtn.disabled = true;
+                passBtn.style.opacity = '0.5';
+            }
+        }
+        
+        // Update message
+        if (onlineManager.isMyTurn) {
+            if (this.diceRolled) {
+                this.showMessage('Your turn - Make your move!');
+            } else {
+                this.showMessage('Your turn - Roll the dice!');
+            }
+        } else {
+            const opponent = onlineManager.getOpponentName();
+            this.showMessage(`${opponent}'s turn`);
         }
     }
 
@@ -129,6 +332,12 @@ class GameBoard {
         if (!this.gameActive) {
             this.showMessage('Game over!');
             return 100;
+        }
+
+        // For online games, check if it's our turn
+        if (this.isOnlineGame() && window.onlineGameManager && !window.onlineGameManager.isMyTurn) {
+            this.showMessage("Wait for opponent's move");
+            return 102;
         }
 
         // Check if dice has been rolled
@@ -664,10 +873,22 @@ class GameBoard {
             }
         });
 
-        // Update turn message
+        // Update turn message based on game mode
         let turnMsg;
         if (this.options.mode === 'pvc' && this.currentPlayer === Player.P2) {
             turnMsg = "AI's turn - Rolling...";
+        } else if (this.isOnlineGame() && window.onlineGameManager) {
+            // Online game message
+            if (window.onlineGameManager.isMyTurn) {
+                if (this.diceRolled) {
+                    turnMsg = 'Your turn - Make your move!';
+                } else {
+                    turnMsg = 'Your turn - Roll dice!';
+                }
+            } else {
+                const opponent = window.onlineGameManager.getOpponentName();
+                turnMsg = `${opponent}'s turn`;
+            }
         } else if (this.diceRolled) {
             turnMsg = `Player ${this.currentPlayer === Player.P1 ? '1' : '2'} - Make your move!`;
         } else {
@@ -678,6 +899,11 @@ class GameBoard {
         // Update dice roll button state
         if (window.updateRollButtonState) {
             window.updateRollButtonState();
+        }
+
+        // Update online UI if needed
+        if (this.isOnlineGame()) {
+            this.updateOnlineUI();
         }
     }
 
@@ -723,6 +949,26 @@ class GameBoard {
             setTimeout(() => this.makeAIMove(), 500);
         }
     }
+
+    /**
+     * Static method to get server credentials
+     */
+    static getServerCredentials(serverKey) {
+        if (window.AuthManager) {
+            return window.AuthManager.getCredentials(serverKey);
+        }
+        return null;
+    }
+
+    /**
+     * Static method to check if user is logged in to a server
+     */
+    static isLoggedInToServer(serverKey) {
+        if (window.AuthManager) {
+            return window.AuthManager.isLoggedInToServer(serverKey);
+        }
+        return false;
+    }
 }
 
 /**
@@ -732,7 +978,7 @@ class GameBoard {
  * @returns {GameBoard} - The created GameBoard instance
  */
 function generateBoard(columns = 9, options = {}) {
-    console.log("generateBoard: Initialisting GameBoard");
+    console.log("generateBoard: Initializing GameBoard with options:", options);
     window.game = new GameBoard(Board.DEFAULT_CONTAINER, columns, options);
     setupActionButtons();
 
@@ -777,32 +1023,93 @@ function setupActionButtons() {
     }
 }
 
+/**
+ * Setup online event listeners
+ */
+function setupOnlineEventListeners() {
+    // Override board click event for online games
+    document.addEventListener(Board.CLICK, function(e) {
+        if (window.game && window.game.isOnlineGame()) {
+            e.stopPropagation();
+            console.log("Online board click: " + JSON.stringify(e.detail));
+            
+            let num = window.game.handleOnlineClick(e.detail.index);
+            console.log("Online handleClick returned " + num);
+        }
+    });
+    
+    // Listen for auth events to handle pending online setups
+    document.addEventListener('auth:login', function(e) {
+        if (window.pendingOnlineSetup && e.detail) {
+            console.log('Login successful for server:', e.detail.server);
+            
+            // If we have a pending setup for this server, start the game
+            if (e.detail.server === window.pendingOnlineSetup.serverKey) {
+                setTimeout(() => {
+                    if (window.onlineGameManager) {
+                        window.onlineGameManager.startOnlineGame(
+                            window.pendingOnlineSetup.columns,
+                            window.pendingOnlineSetup.firstPlayer
+                        ).then(success => {
+                            if (!success) {
+                                // Show error and reopen setup
+                                alert('Failed to start online game. Please try again.');
+                                document.getElementById('setupModal').classList.remove('hidden');
+                            }
+                        });
+                    }
+                }, 1000);
+            }
+        }
+    });
+    
+    // Listen for game updates
+    setInterval(() => {
+        if (window.game && window.game.isOnlineGame()) {
+            window.game.updateOnlineUI();
+        }
+    }, 1000);
+}
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
     setupActionButtons();
-});
-
-document.addEventListener(Board.CLICK, e => {
-    e.stopPropagation();
-    console.log("Board click: " + JSON.stringify(e.detail));
+    setupOnlineEventListeners();
     
-    let num = window.game.handleClick(e.detail.index);
-    console.log("HandleClick: returned " + num);
+    // Set up global event listeners
+    document.addEventListener(Board.CLICK, e => {
+        e.stopPropagation();
+        console.log("Board click: " + JSON.stringify(e.detail));
+        
+        // Use appropriate handler based on game mode
+        if (window.game) {
+            if (window.game.isOnlineGame()) {
+                window.game.handleOnlineClick(e.detail.index);
+            } else {
+                let num = window.game.handleClick(e.detail.index);
+                console.log("HandleClick: returned " + num);
+            }
+        }
+    });
+
+    // Event listeners for dice and turn events
+    document.addEventListener('stickRoll', (e) => {
+        if (window.game) {
+            window.game.handleStickRoll(e.detail);
+        }
+    });
+
+    document.addEventListener('turnChanged', () => {
+        if (window.game && window.updateRollButtonState) {
+            window.updateRollButtonState();
+        }
+    });
 });
 
 // Expose functions globally
 window.generateBoard = generateBoard;
 window.GameBoard = GameBoard;
 
-// Event listeners for dice and turn events
-document.addEventListener('stickRoll', (e) => {
-    if (window.game) {
-        window.game.handleStickRoll(e.detail);
-    }
-});
-
-document.addEventListener('turnChanged', () => {
-    if (window.game && window.updateRollButtonState) {
-        window.updateRollButtonState();
-    }
-});
+// Add utility functions to GameBoard class
+window.GameBoard.getServerCredentials = GameBoard.getServerCredentials;
+window.GameBoard.isLoggedInToServer = GameBoard.isLoggedInToServer;

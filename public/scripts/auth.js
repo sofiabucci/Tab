@@ -9,6 +9,16 @@ class AuthManager {
         this.setupEventListeners();
         this.initNotificationSystem();
         this.init();
+        
+        // Estado de login ativo
+        this.isLoggedIn = this.hasAnyLogin();
+    }
+
+    /**
+     * Check if user is logged in to any server
+     */
+    hasAnyLogin() {
+        return this.getLoggedInServer() !== null;
     }
 
     /**
@@ -19,6 +29,32 @@ class AuthManager {
         
         // Update login button based on stored credentials
         this.updateLoginButton();
+        
+        // Ensure form buttons have consistent dimensions
+        this.ensureButtonConsistency();
+        
+        // Dispatch initial auth state event
+        this.dispatchAuthStateEvent();
+    }
+
+    /**
+     * Ensure login and create account buttons have same dimensions
+     */
+    ensureButtonConsistency() {
+        // This ensures both buttons have the same styling
+        // CSS handles the actual dimensions in modals.css
+        const loginBtn = document.querySelector('#loginForm button[type="submit"]');
+        const registerBtn = document.querySelector('#registerForm button[type="submit"]');
+        
+        if (loginBtn && registerBtn) {
+            // Add consistent classes
+            loginBtn.classList.add('auth-submit-btn');
+            registerBtn.classList.add('auth-submit-btn');
+            
+            // Ensure same text structure
+            loginBtn.textContent = 'Login';
+            registerBtn.textContent = 'Create Account';
+        }
     }
 
     /**
@@ -99,6 +135,23 @@ class AuthManager {
         if (registerNick) {
             registerNick.addEventListener('input', () => this.validateNickname());
         }
+
+        // Listen for online game setup to update auth state
+        document.addEventListener('auth:login', () => {
+            this.updateAuthState();
+        });
+
+        document.addEventListener('auth:register', () => {
+            this.updateAuthState();
+        });
+
+        // Listen for setup modal opening
+        const playBtn = document.getElementById('playBtn');
+        if (playBtn) {
+            playBtn.addEventListener('click', () => {
+                this.updateLoginButton();
+            });
+        }
     }
 
     /**
@@ -108,24 +161,141 @@ class AuthManager {
         const loggedInServer = this.getLoggedInServer();
         
         if (loggedInServer) {
-            // User is logged in to some server, ask which action
-            this.showLogoutConfirmation(loggedInServer);
+            // User is logged in to some server - show logout options
+            this.showLogoutMenu(loggedInServer);
         } else {
-            // User is not logged in, show info
-            this.showNotification('Please select a game mode first to login to a specific server', 'info', 4000);
+            // User is not logged in
+            this.showLoginInfo();
         }
     }
 
     /**
-     * Show logout confirmation dialog
+     * Show logout menu with options
      */
-    showLogoutConfirmation(serverKey) {
+    showLogoutMenu(serverKey) {
         const serverName = serverKey === 'official' ? 'Official Server' : 'Group Server';
         const nick = this.getCredentials(serverKey)?.nick || 'User';
         
-        if (confirm(`You are logged into ${serverName} as ${nick}.\n\nDo you want to logout?`)) {
+        // Create logout menu
+        const menu = document.createElement('div');
+        menu.className = 'auth-menu';
+        menu.innerHTML = `
+            <div class="auth-menu-header">
+                <strong>Logged in as ${nick}</strong>
+                <small>${serverName}</small>
+            </div>
+            <button class="auth-menu-btn auth-menu-logout" data-action="logout">
+                <span>Logout</span>
+                <small>Disconnect from ${serverName}</small>
+            </button>
+            <button class="auth-menu-btn auth-menu-switch" data-action="switch">
+                <span>Switch Account</span>
+                <small>Login to different account/server</small>
+            </button>
+            <button class="auth-menu-btn auth-menu-cancel" data-action="cancel">
+                Cancel
+            </button>
+        `;
+        
+        // Add event listeners
+        menu.querySelector('[data-action="logout"]').addEventListener('click', () => {
+            document.body.removeChild(menu);
             this.logoutFromServer(serverKey);
+        });
+        
+        menu.querySelector('[data-action="switch"]').addEventListener('click', () => {
+            document.body.removeChild(menu);
+            this.showServerSelection();
+        });
+        
+        menu.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+            document.body.removeChild(menu);
+        });
+        
+        // Add menu to body
+        document.body.appendChild(menu);
+        
+        // Close menu when clicking outside
+        const closeMenu = (e) => {
+            if (!menu.contains(e.target) && e.target.id !== 'loginBtn') {
+                document.body.removeChild(menu);
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        
+        setTimeout(() => {
+            document.addEventListener('click', closeMenu);
+        }, 100);
+    }
+
+    /**
+     * Show login information when not logged in
+     */
+    showLoginInfo() {
+        this.showNotification(
+            'To play online: 1) Click "Play" 2) Choose an online mode 3) Login will be requested automatically',
+            'info',
+            5000
+        );
+        
+        // Open play modal to help user
+        const playBtn = document.getElementById('playBtn');
+        if (playBtn) {
+            playBtn.click();
         }
+    }
+
+    /**
+     * Show server selection for switching accounts
+     */
+    showServerSelection() {
+        const modal = document.createElement('div');
+        modal.className = 'server-selection-modal';
+        modal.innerHTML = `
+            <div class="server-selection-content">
+                <h3>Select Server to Login</h3>
+                <div class="server-options">
+                    <button class="server-option" data-server="official">
+                        <strong>Official Server</strong>
+                        <small>twserver.alunos.dcc.fc.up.pt:8008</small>
+                        <span class="server-status-indicator ${this.isLoggedInToServer('official') ? 'logged-in' : 'not-logged'}">
+                            ${this.isLoggedInToServer('official') ? '✓ Logged in' : 'Not logged in'}
+                        </span>
+                    </button>
+                    <button class="server-option" data-server="group">
+                        <strong>Group Server</strong>
+                        <small>twserver.alunos.dcc.fc.up.pt:8104</small>
+                        <span class="server-status-indicator ${this.isLoggedInToServer('group') ? 'logged-in' : 'not-logged'}">
+                            ${this.isLoggedInToServer('group') ? '✓ Logged in' : 'Not logged in'}
+                        </span>
+                    </button>
+                </div>
+                <div class="server-selection-actions">
+                    <button class="btn-cancel">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners
+        modal.querySelectorAll('.server-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.body.removeChild(modal);
+                this.openForServer(option.dataset.server);
+            });
+        });
+        
+        modal.querySelector('.btn-cancel').addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+        
+        // Close when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+            }
+        });
+        
+        document.body.appendChild(modal);
     }
 
     /**
@@ -153,6 +323,9 @@ class AuthManager {
         
         // Try to pre-fill saved credentials
         this.prefillCredentials(serverKey);
+        
+        // Ensure button consistency
+        this.ensureButtonConsistency();
     }
 
     /**
@@ -222,7 +395,8 @@ class AuthManager {
             this.saveCredentials(this.currentServer, nick, password);
             
             // Update UI
-            this.updateLoginButton();
+            this.updateAuthState();
+            this.showLoginSuccess();
             
             // Show success and close modal
             this.showNotification(`Successfully logged into ${this.getServerName()}`, 'success', 3000);
@@ -268,7 +442,8 @@ class AuthManager {
             this.saveCredentials(this.currentServer, nick, password);
             
             // Update UI and show success
-            this.updateLoginButton();
+            this.updateAuthState();
+            this.showLoginSuccess();
             this.showNotification(`Account created on ${this.getServerName()}! Welcome, ${nick}!`, 'success', 4000);
             
             // Switch back to login tab with pre-filled nick
@@ -487,7 +662,8 @@ class AuthManager {
             return {
                 nick: serverCreds.nick,
                 password: password,
-                server: serverKey
+                server: serverKey,
+                lastLogin: serverCreds.lastLogin
             };
         } catch (e) {
             console.error('Error decoding password:', e);
@@ -516,6 +692,30 @@ class AuthManager {
     }
 
     /**
+     * Update auth state and UI
+     */
+    updateAuthState() {
+        this.isLoggedIn = this.hasAnyLogin();
+        this.updateLoginButton();
+        this.dispatchAuthStateEvent();
+    }
+
+    /**
+     * Dispatch authentication state change event
+     */
+    dispatchAuthStateEvent() {
+        const loggedInServer = this.getLoggedInServer();
+        const event = new CustomEvent('auth:stateChanged', {
+            detail: {
+                isLoggedIn: !!loggedInServer,
+                server: loggedInServer,
+                nick: loggedInServer ? this.getCredentials(loggedInServer)?.nick : null
+            }
+        });
+        document.dispatchEvent(event);
+    }
+
+    /**
      * Logout from a specific server
      */
     logoutFromServer(serverKey) {
@@ -523,11 +723,46 @@ class AuthManager {
         
         if (credentials[serverKey]) {
             const nick = credentials[serverKey].nick;
+            const serverName = serverKey === 'official' ? 'Official' : 'Group';
+            
+            // Check if this affects any pending online setup
+            if (window.pendingOnlineSetup && window.pendingOnlineSetup.serverKey === serverKey) {
+                window.pendingOnlineSetup = null;
+                this.showNotification(
+                    `Online game setup cancelled because you logged out from ${serverName} Server`,
+                    'warning',
+                    4000
+                );
+            }
+            
+            // Check if this affects any active online game
+            if (window.onlineGameManager && 
+                window.onlineGameManager.currentGame && 
+                window.onlineGameManager.currentServer === serverKey) {
+                this.showNotification(
+                    `Active online game on ${serverName} Server will be disconnected`,
+                    'warning',
+                    4000
+                );
+                setTimeout(() => {
+                    if (window.onlineGameManager.leaveGame) {
+                        window.onlineGameManager.leaveGame();
+                    }
+                }, 1000);
+            }
+            
+            // Remove credentials
             delete credentials[serverKey];
             localStorage.setItem('serverCredentials', JSON.stringify(credentials));
             
-            this.updateLoginButton();
-            this.showNotification(`Logged out from ${serverKey === 'official' ? 'Official' : 'Group'} Server. Goodbye, ${nick}!`, 'info', 3000);
+            // Update UI
+            this.updateAuthState();
+            
+            this.showNotification(
+                `Logged out from ${serverName} Server. Goodbye, ${nick}!`,
+                'info',
+                3000
+            );
         }
     }
 
@@ -543,12 +778,20 @@ class AuthManager {
         if (loggedInServer) {
             const creds = this.getCredentials(loggedInServer);
             const serverName = loggedInServer === 'official' ? 'Official' : 'Group';
+            const shortNick = creds.nick.length > 10 ? creds.nick.substring(0, 8) + '...' : creds.nick;
             
-            loginBtn.textContent = `Logout (${creds.nick} - ${serverName})`;
-            loginBtn.title = `Logged into ${serverName} Server as ${creds.nick}. Click to logout.`;
+            loginBtn.innerHTML = `
+                <span class="auth-status logged-in">
+                    <span class="auth-user">${shortNick}</span>
+                    <span class="auth-server">${serverName}</span>
+                </span>
+            `;
+            loginBtn.title = `Logged into ${serverName} Server as ${creds.nick}. Click to logout or switch account.`;
+            loginBtn.classList.add('logged-in');
         } else {
-            loginBtn.textContent = 'Login';
-            loginBtn.title = 'Select a game mode first to login to a specific server';
+            loginBtn.innerHTML = '<span class="auth-status">Login</span>';
+            loginBtn.title = 'Click to login (requires selecting an online game mode first)';
+            loginBtn.classList.remove('logged-in');
         }
     }
 
@@ -601,17 +844,19 @@ class AuthManager {
     setLoading(button, isLoading) {
         if (!button) return;
         
-        const originalText = button.textContent;
-        
         if (isLoading) {
             button.disabled = true;
             button.textContent = 'Loading...';
-            button.style.opacity = '0.7';
+            button.classList.add('loading');
         } else {
             button.disabled = false;
-            button.textContent = originalText.replace('Loading...', 
-                button.closest('form').id === 'loginForm' ? 'Login' : 'Create Account');
-            button.style.opacity = '1';
+            // Restore original text based on form type
+            if (button.closest('form').id === 'loginForm') {
+                button.textContent = 'Login';
+            } else {
+                button.textContent = 'Create Account';
+            }
+            button.classList.remove('loading');
         }
     }
 
@@ -655,7 +900,7 @@ class AuthManager {
     }
 
     /**
-     * Initialize notification system
+     * Initialize notification system - UPDATED (no CSS here)
      */
     initNotificationSystem() {
         // Create notification container if it doesn't exist
@@ -664,103 +909,17 @@ class AuthManager {
             notificationContainer.id = 'notificationContainer';
             notificationContainer.className = 'notification-container';
             document.body.appendChild(notificationContainer);
-            
-            // Add CSS for notifications
-            const style = document.createElement('style');
-            style.textContent = `
-                .notification-container {
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    z-index: 10000;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                    max-width: 300px;
-                }
-                
-                .notification {
-                    padding: 12px 16px;
-                    border-radius: 8px;
-                    color: white;
-                    font-weight: 500;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                    animation: slideIn 0.3s ease-out;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    min-width: 250px;
-                }
-                
-                .notification.success {
-                    background-color: #4CAF50;
-                    border-left: 4px solid #2E7D32;
-                }
-                
-                .notification.error {
-                    background-color: #f44336;
-                    border-left: 4px solid #c62828;
-                }
-                
-                .notification.info {
-                    background-color: #2196F3;
-                    border-left: 4px solid #1565C0;
-                }
-                
-                .notification.warning {
-                    background-color: #FF9800;
-                    border-left: 4px solid #EF6C00;
-                }
-                
-                .notification-close {
-                    background: none;
-                    border: none;
-                    color: white;
-                    font-size: 18px;
-                    cursor: pointer;
-                    margin-left: 10px;
-                    padding: 0;
-                    width: 20px;
-                    height: 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                
-                @keyframes slideIn {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                
-                @keyframes slideOut {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                }
-            `;
-            document.head.appendChild(style);
         }
     }
 
     /**
-     * Show notification
+     * Show notification - UPDATED (no close button, auto-remove after 10s)
      */
-    showNotification(message, type = 'info', duration = 5000) {
+    showNotification(message, type = 'info', duration = 10000) {
         const container = document.getElementById('notificationContainer');
         if (!container) {
-            // Fallback to alert if notification system not ready
-            alert(`${type.toUpperCase()}: ${message}`);
+            // Fallback to console if notification system not ready
+            console.log(`${type.toUpperCase()}: ${message}`);
             return null;
         }
         
@@ -770,18 +929,26 @@ class AuthManager {
         const messageSpan = document.createElement('span');
         messageSpan.textContent = message;
         
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'notification-close';
-        closeBtn.innerHTML = '&times;';
-        closeBtn.addEventListener('click', () => {
-            this.removeNotification(notification);
-        });
+        // Add progress bar for visual feedback
+        const progressBar = document.createElement('div');
+        progressBar.className = 'notification-progress';
         
         notification.appendChild(messageSpan);
-        notification.appendChild(closeBtn);
-        container.appendChild(notification);
+        notification.appendChild(progressBar);
         
-        // Auto-remove after duration
+        // Add to container (top of the stack)
+        container.insertBefore(notification, container.firstChild);
+        
+        // Limit number of notifications to avoid clutter
+        const maxNotifications = 3;
+        const notifications = container.querySelectorAll('.notification');
+        if (notifications.length > maxNotifications) {
+            for (let i = maxNotifications; i < notifications.length; i++) {
+                this.removeNotification(notifications[i]);
+            }
+        }
+        
+        // Auto-remove after duration (default 10 seconds)
         if (duration > 0) {
             setTimeout(() => {
                 if (notification.parentNode) {
@@ -797,12 +964,25 @@ class AuthManager {
      * Remove notification with animation
      */
     removeNotification(notification) {
-        notification.style.animation = 'slideOut 0.3s ease-out';
+        notification.style.animation = 'slideOutUp 0.3s ease-out forwards';
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
             }
         }, 300);
+    }
+
+    /**
+     * Show successful login animation
+     */
+    showLoginSuccess() {
+        const loginBtn = document.getElementById('loginBtn');
+        if (loginBtn) {
+            loginBtn.classList.add('new-login');
+            setTimeout(() => {
+                loginBtn.classList.remove('new-login');
+            }, 1000);
+        }
     }
 }
 

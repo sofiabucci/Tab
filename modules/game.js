@@ -1,13 +1,24 @@
 const auth = require('./auth');
 const storage = require('./storage');
 
-class GameLogic {
+class TabGame {
+    constructor() {
+        // Timeouts para jogadores
+        this.timeouts = new Map();
+    }
+
     /**
      * Registra um novo utilizador
      */
     async register(nick, password) {
-        if (storage.userExists(nick)) {
-            throw new Error('Nick já está em uso');
+        const user = storage.getUser(nick);
+        
+        if (user) {
+            // Verificar se password é a mesma
+            if (!auth.verifyPassword(password, user.password)) {
+                throw new Error('User registered with a different password');
+            }
+            return; // Já registrado com mesma password
         }
 
         const hashedPassword = auth.hashPassword(password);
@@ -15,91 +26,91 @@ class GameLogic {
             password: hashedPassword,
             createdAt: new Date().toISOString(),
             gamesPlayed: 0,
-            wins: 0,
-            score: 0,
-            lastLogin: null
+            victories: 0,
+            lastLogin: new Date().toISOString()
         };
 
         storage.setUser(nick, userData);
-        return { success: true };
     }
 
     /**
      * Junta um jogador a um jogo
      */
-    async join(nick, password, size = 2, gameId = null) {
+    async join(group, nick, password, size) {
         // Verificar credenciais
         const user = storage.getUser(nick);
         if (!user || !auth.verifyPassword(password, user.password)) {
             throw new Error('Credenciais inválidas');
         }
 
-        if (gameId) {
+        // Validar size ímpar
+        const sizeNum = parseInt(size);
+        if (isNaN(sizeNum) || sizeNum % 2 === 0 || sizeNum < 3) {
+            throw new Error(`Invalid size '${size}'`);
+        }
+
+        // Procurar jogo em espera com mesmo group e size
+        const waitingGames = Object.values(storage.getAllGames()).filter(game => 
+            game.group === parseInt(group) && 
+            game.size === sizeNum && 
+            game.status === 'waiting' &&
+            Object.keys(game.players).length === 1
+        );
+
+        if (waitingGames.length > 0) {
             // Juntar a jogo existente
-            const game = storage.getGame(gameId);
-            if (!game) {
-                throw new Error('Jogo não encontrado');
-            }
-
-            if (game.status !== 'waiting') {
-                throw new Error('Jogo já começou');
-            }
-
-            if (game.players.length >= game.size) {
-                throw new Error('Jogo está cheio');
-            }
-
-            // Verificar se jogador já está no jogo
-            if (game.players.some(p => p.nick === nick)) {
-                throw new Error('Já estás neste jogo');
-            }
-
-            // Adicionar jogador
-            game.players.push({
-                nick,
-                color: this.getAvailableColor(game),
-                pieces: [0, 0, 0, 0], // Todas as peças na base
-                score: 0,
-                isReady: false
-            });
-
-            // Se atingiu o número máximo de jogadores, iniciar jogo
-            if (game.players.length === game.size) {
-                game.status = 'playing';
-                game.currentPlayer = 0;
-                game.startedAt = new Date().toISOString();
-                game.diceValue = null;
-            }
-
-            storage.setGame(gameId, game);
-            return { game: gameId };
+            const game = waitingGames[0];
+            const existingPlayer = Object.keys(game.players)[0];
+            
+            // Definir cores
+            game.players[nick] = 'Red'; // Segundo jogador é Red
+            game.players[existingPlayer] = 'Blue'; // Primeiro jogador é Blue
+            
+            // Inicializar tabuleiro
+            game.pieces = this.initializeBoard(sizeNum, existingPlayer, nick);
+            game.status = 'playing';
+            game.initial = existingPlayer;
+            game.turn = existingPlayer;
+            game.step = 'from';
+            game.dice = null;
+            game.selected = [];
+            game.startedAt = new Date().toISOString();
+            game.moves = [];
+            
+            // Limpar timeout do jogo em espera
+            this.clearGameTimeout(game.id);
+            // Configurar timeout para jogadas
+            this.setGameTimeout(game.id);
+            
+            storage.setGame(game.id, game);
+            return { game: game.id };
         } else {
             // Criar novo jogo
-            if (size < 2 || size > 4) {
-                throw new Error('Size deve ser entre 2 e 4');
-            }
-
-            const newGameId = auth.generateGameId({ nick, size });
+            const gameId = auth.generateGameId({ group, nick, size, timestamp: Date.now() });
+            
             const newGame = {
-                id: newGameId,
-                size: parseInt(size),
-                players: [{
-                    nick,
-                    color: this.getPlayerColor(0),
-                    pieces: [0, 0, 0, 0],
-                    score: 0,
-                    isReady: false
-                }],
+                id: gameId,
+                group: parseInt(group),
+                size: sizeNum,
+                players: { [nick]: null }, // Cor será definida quando houver adversário
                 status: 'waiting',
                 createdAt: new Date().toISOString(),
-                currentPlayer: 0,
-                diceValue: null,
-                boardSize: size * 16,
-                moves: []
+                initial: null,
+                turn: null,
+                step: null,
+                dice: null,
+                selected: [],
+                pieces: null,
+                winner: null,
+                moves: [],
+                mustPass: null
             };
 
-            storage.setGame(newGameId, newGame);
-            return { game: newGameId };
+            // Configurar timeout de 5 minutos para jogo em espera
+            this.setWaitingTimeout(gameId, nick);
+            
+            storage.setGame(gameId, newGame);
+            return { game: gameId };
         }
     }
 
@@ -107,7 +118,6 @@ class GameLogic {
      * Sai de um jogo
      */
     async leave(nick, password, gameId) {
-        // Verificar credenciais
         const user = storage.getUser(nick);
         if (!user || !auth.verifyPassword(password, user.password)) {
             throw new Error('Credenciais inválidas');
@@ -118,45 +128,47 @@ class GameLogic {
             throw new Error('Jogo não encontrado');
         }
 
-        // Remover jogador
-        game.players = game.players.filter(p => p.nick !== nick);
+        // Limpar timeout
+        this.clearGameTimeout(gameId);
 
-        if (game.players.length === 0) {
-            // Jogo vazio - apagar
-            storage.deleteGame(gameId);
-        } else if (game.status === 'playing') {
-            // Ajustar turno se necessário
-            const playerIndex = game.players.findIndex(p => p.nick === nick);
-            if (playerIndex >= 0 && game.currentPlayer >= playerIndex) {
-                game.currentPlayer = Math.max(0, game.currentPlayer - 1);
+        // Se jogo está em espera, apenas remover
+        if (game.status === 'waiting') {
+            delete game.players[nick];
+            if (Object.keys(game.players).length === 0) {
+                storage.deleteGame(gameId);
+            } else {
+                storage.setGame(gameId, game);
             }
-
-            // Se só restar 1 jogador, terminar jogo
-            if (game.players.length === 1) {
-                game.status = 'finished';
-                game.winner = game.players[0].nick;
-                game.finishedAt = new Date().toISOString();
-                
-                // Atualizar estatísticas do vencedor
-                const winner = storage.getUser(game.winner);
-                winner.wins += 1;
-                winner.score += 10;
-                winner.gamesPlayed += 1;
-                storage.setUser(game.winner, winner);
-                storage.updateRanking(game.winner, 10);
-            }
-            
-            storage.setGame(gameId, game);
+            return;
         }
 
-        return { success: true };
+        // Se jogo está em andamento, conceder vitória ao adversário
+        if (game.status === 'playing') {
+            const opponent = Object.keys(game.players).find(p => p !== nick);
+            if (opponent) {
+                game.status = 'finished';
+                game.winner = opponent;
+                game.finishedAt = new Date().toISOString();
+                
+                // Atualizar estatísticas
+                const opponentUser = storage.getUser(opponent);
+                opponentUser.victories += 1;
+                opponentUser.gamesPlayed += 1;
+                storage.setUser(opponent, opponentUser);
+                storage.updateRanking(game.group, game.size, opponent, 1);
+                
+                user.gamesPlayed += 1;
+                storage.setUser(nick, user);
+            }
+        }
+
+        storage.setGame(gameId, game);
     }
 
     /**
-     * Lança o dado
+     * Lança os paus
      */
     async roll(nick, password, gameId) {
-        // Verificar credenciais
         const user = storage.getUser(nick);
         if (!user || !auth.verifyPassword(password, user.password)) {
             throw new Error('Credenciais inválidas');
@@ -171,36 +183,49 @@ class GameLogic {
             throw new Error('Jogo não está em andamento');
         }
 
-        // Verificar se é a vez do jogador
-        const currentPlayer = game.players[game.currentPlayer];
-        if (currentPlayer.nick !== nick) {
-            throw new Error('Não é a tua vez de jogar');
+        if (game.turn !== nick) {
+            throw new Error('Not your turn to play');
         }
 
-        // Lançar dado (1-6)
-        const diceValue = Math.floor(Math.random() * 6) + 1;
-        game.diceValue = diceValue;
-        game.lastRoll = new Date().toISOString();
+        if (game.dice && game.dice.keepPlaying) {
+            throw new Error('You already rolled the dice but can roll it again');
+        }
 
-        // Verificar se há movimentos possíveis
-        const possibleMoves = this.getPossibleMoves(game, currentPlayer, diceValue);
-        const mustPass = possibleMoves.length === 0;
+        // Lançar os 4 paus
+        const dice = this.rollDice();
+        game.dice = dice;
+        game.step = 'from';
+        game.selected = [];
 
+        // Verificar movimentos possíveis
+        const possibleMoves = this.getPossibleMoves(game, nick, dice.value);
+        
+        if (possibleMoves.length === 0) {
+            game.mustPass = nick;
+            // Se não pode mover e não pode jogar novamente, forçar pass
+            if (!dice.keepPlaying) {
+                const players = Object.keys(game.players);
+                const currentIndex = players.indexOf(nick);
+                const nextIndex = (currentIndex + 1) % players.length;
+                game.turn = players[nextIndex];
+                game.dice = null;
+                game.mustPass = null;
+            }
+        } else {
+            game.mustPass = null;
+        }
+
+        // Reiniciar timeout
+        this.clearGameTimeout(gameId);
+        this.setGameTimeout(gameId);
+        
         storage.setGame(gameId, game);
-
-        return {
-            dice: diceValue,
-            turn: nick,
-            mustPass: mustPass,
-            possibleMoves: mustPass ? [] : possibleMoves
-        };
     }
 
     /**
      * Passa a vez
      */
     async pass(nick, password, gameId) {
-        // Verificar credenciais
         const user = storage.getUser(nick);
         if (!user || !auth.verifyPassword(password, user.password)) {
             throw new Error('Credenciais inválidas');
@@ -215,39 +240,46 @@ class GameLogic {
             throw new Error('Jogo não está em andamento');
         }
 
-        // Verificar se é a vez do jogador
-        const currentPlayer = game.players[game.currentPlayer];
-        if (currentPlayer.nick !== nick) {
-            throw new Error('Não é a tua vez de jogar');
+        if (game.turn !== nick) {
+            throw new Error('Not your turn to play');
         }
 
-        // Verificar se pode passar (se não tem movimentos possíveis)
-        if (game.diceValue && !game.mustPass) {
-            const possibleMoves = this.getPossibleMoves(game, currentPlayer, game.diceValue);
-            if (possibleMoves.length > 0) {
-                throw new Error('Tens movimentos possíveis, não podes passar');
+        // Verificar se pode passar
+        if (game.dice) {
+            if (game.dice.keepPlaying) {
+                throw new Error('You already rolled the dice but can roll it again');
+            }
+            
+            if (!game.mustPass || game.mustPass !== nick) {
+                const possibleMoves = this.getPossibleMoves(game, nick, game.dice.value);
+                if (possibleMoves.length > 0) {
+                    throw new Error('You already rolled the dice and have valid moves');
+                }
             }
         }
 
         // Passar para próximo jogador
-        game.currentPlayer = (game.currentPlayer + 1) % game.players.length;
-        game.diceValue = null;
-        game.mustPass = false;
+        const players = Object.keys(game.players);
+        const currentIndex = players.indexOf(nick);
+        const nextIndex = (currentIndex + 1) % players.length;
+        
+        game.turn = players[nextIndex];
+        game.dice = null;
+        game.step = 'from';
+        game.selected = [];
+        game.mustPass = null;
 
+        // Reiniciar timeout
+        this.clearGameTimeout(gameId);
+        this.setGameTimeout(gameId);
+        
         storage.setGame(gameId, game);
-
-        return {
-            success: true,
-            turn: game.players[game.currentPlayer].nick,
-            mustPass: false
-        };
     }
 
     /**
      * Notifica um movimento
      */
     async notify(nick, password, gameId, cell) {
-        // Verificar credenciais
         const user = storage.getUser(nick);
         if (!user || !auth.verifyPassword(password, user.password)) {
             throw new Error('Credenciais inválidas');
@@ -262,162 +294,495 @@ class GameLogic {
             throw new Error('Jogo não está em andamento');
         }
 
-        // Verificar se é a vez do jogador
-        const currentPlayer = game.players[game.currentPlayer];
-        if (currentPlayer.nick !== nick) {
-            throw new Error('Não é a tua vez de jogar');
+        if (game.turn !== nick) {
+            throw new Error('not your turn to play');
         }
 
-        if (!game.diceValue) {
-            throw new Error('Precisas lançar o dado primeiro');
+        // Validar cell conforme especificação
+        if (typeof cell !== 'number' || !Number.isInteger(cell)) {
+            throw new Error('cell is not an integer');
         }
-
-        // Validar movimento
-        const validMove = this.validateMove(game, currentPlayer, cell, game.diceValue);
-        if (!validMove.valid) {
-            throw new Error(validMove.error);
-        }
-
-        // Executar movimento
-        this.executeMove(game, currentPlayer, cell, game.diceValue);
         
+        if (cell < 0) {
+            throw new Error('cell is negative');
+        }
+        
+        if (cell >= game.size * 4) {
+            throw new Error('Invalid move: cell out of bounds');
+        }
+
+        if (!game.dice) {
+            throw new Error('Must roll dice first');
+        }
+
+        // Processar movimento
+        const result = this.processMove(game, nick, cell);
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+
         // Verificar se jogador ganhou
-        const hasWon = currentPlayer.pieces.every(p => p === 100); // 100 = casa final
-        if (hasWon) {
+        if (this.hasPlayerWon(game, nick)) {
             game.status = 'finished';
             game.winner = nick;
             game.finishedAt = new Date().toISOString();
+            game.dice = null;
+            game.step = null;
+            game.selected = [];
             
             // Atualizar estatísticas
-            user.wins += 1;
-            user.score += 20;
+            user.victories += 1;
             user.gamesPlayed += 1;
             storage.setUser(nick, user);
-            storage.updateRanking(nick, 20);
+            storage.updateRanking(game.group, game.size, nick, 1);
+            
+            // Atualizar perdedor
+            const opponent = Object.keys(game.players).find(p => p !== nick);
+            if (opponent) {
+                const opponentUser = storage.getUser(opponent);
+                opponentUser.gamesPlayed += 1;
+                storage.setUser(opponent, opponentUser);
+            }
+            
+            // Limpar timeout
+            this.clearGameTimeout(gameId);
         } else {
-            // Passar para próximo jogador
-            game.currentPlayer = (game.currentPlayer + 1) % game.players.length;
-            game.diceValue = null;
+            // Reiniciar timeout
+            this.clearGameTimeout(gameId);
+            this.setGameTimeout(gameId);
         }
 
-        // Registrar movimento
-        game.moves.push({
-            player: nick,
-            from: validMove.from,
-            to: cell,
-            dice: game.diceValue,
-            timestamp: new Date().toISOString()
-        });
-
         storage.setGame(gameId, game);
-
-        return {
-            success: true,
-            cell: cell,
-            turn: game.players[game.currentPlayer]?.nick || null,
-            winner: game.winner || null,
-            pieces: currentPlayer.pieces
-        };
     }
 
     /**
      * Obtém o ranking
      */
-    async getRanking(filters = {}) {
-        const rankings = storage.getSortedRankings(filters.limit || 50);
-        return { ranking: rankings };
+    async getRanking(group, size) {
+        const rankings = storage.getRanking(group, size, 10);
+        return rankings;
     }
 
-    // Métodos auxiliares
-    getPlayerColor(index) {
-        const colors = ['red', 'blue', 'green', 'yellow'];
-        return colors[index % colors.length];
-    }
+    // ========== MÉTODOS AUXILIARES ==========
 
-    getAvailableColor(game) {
-        const usedColors = game.players.map(p => p.color);
-        const colors = ['red', 'blue', 'green', 'yellow'];
-        return colors.find(color => !usedColors.includes(color)) || colors[0];
-    }
-
-    getPossibleMoves(game, player, diceValue) {
-        // Implementação simplificada - deve seguir as regras do Ludo
-        const moves = [];
+    /**
+     * Inicializa o tabuleiro
+     */
+    initializeBoard(size, player1, player2) {
+        const totalCells = size * 4;
+        const pieces = Array(totalCells).fill(null);
         
-        for (let i = 0; i < player.pieces.length; i++) {
-            const currentPos = player.pieces[i];
+        // Posicionar peças do jogador 1 (Blue) - posições 0 a size-1
+        for (let i = 0; i < size; i++) {
+            pieces[i] = {
+                color: 'Blue',
+                inMotion: false,
+                reachedLastRow: false,
+                player: player1
+            };
+        }
+        
+        // Posicionar peças do jogador 2 (Red) - posições 3*size a 4*size-1
+        for (let i = 3 * size; i < 4 * size; i++) {
+            pieces[i] = {
+                color: 'Red',
+                inMotion: false,
+                reachedLastRow: false,
+                player: player2
+            };
+        }
+        
+        return pieces;
+    }
+
+    /**
+     * Lança os 4 paus (CORRETO para Tab)
+     */
+    rollDice() {
+        // Gerar 4 valores booleanos (false=escuro/arredondado, true=claro/plano)
+        const stickValues = Array(4).fill().map(() => Math.random() > 0.5);
+        
+        // Contar true (claros/planos)
+        const trueCount = stickValues.filter(v => v).length;
+        
+        // Calcular valor conforme regras do Tab:
+        // 0 true = 6 pontos, 1 true = 1 ponto, 2 true = 2 pontos, etc.
+        let value;
+        switch (trueCount) {
+            case 0: value = 6; break;    // 0 true = 6 pontos
+            case 1: value = 1; break;    // 1 true = 1 ponto (Tâb)
+            case 2: value = 2; break;
+            case 3: value = 3; break;
+            case 4: value = 4; break;    // 4 true = 4 pontos
+            // NUNCA 5!
+        }
+        
+        // Pode jogar novamente se sair 6 (0 true)
+        const keepPlaying = trueCount === 0;
+        
+        return { stickValues, value, keepPlaying };
+    }
+
+    /**
+     * Obtém movimentos possíveis
+     */
+    getPossibleMoves(game, player, diceValue) {
+        const moves = [];
+        const playerColor = game.players[player];
+        
+        for (let i = 0; i < game.pieces.length; i++) {
+            const piece = game.pieces[i];
+            if (!piece || piece.player !== player) continue;
             
-            // Peça na base só pode sair com 6
-            if (currentPos === 0 && diceValue === 6) {
-                moves.push({ piece: i, from: 0, to: 1 });
+            // Calcular posição destino
+            let targetPos;
+            if (playerColor === 'Blue') {
+                targetPos = (i + diceValue) % (game.size * 4);
+            } else { // Red
+                targetPos = (i - diceValue + game.size * 4) % (game.size * 4);
             }
-            // Peça em jogo
-            else if (currentPos > 0 && currentPos < 100) {
-                const newPos = currentPos + diceValue;
-                if (newPos <= 56) { // Tamanho máximo do tabuleiro
-                    moves.push({ piece: i, from: currentPos, to: newPos });
-                }
-                // Entrar na reta final
-                else if (this.canEnterFinalLane(player, currentPos, diceValue)) {
-                    moves.push({ piece: i, from: currentPos, to: 100 + (newPos - 56) });
-                }
+            
+            // Verificar se movimento é válido
+            const validation = this.validateMove(game, i, targetPos, player, diceValue);
+            if (validation.valid) {
+                moves.push({
+                    from: i,
+                    to: targetPos,
+                    captures: validation.captures || []
+                });
             }
         }
         
         return moves;
     }
 
-    validateMove(game, player, targetCell, diceValue) {
-        const moves = this.getPossibleMoves(game, player, diceValue);
-        const validMove = moves.find(move => move.to === targetCell);
+    /**
+     * Processa um movimento
+     */
+    processMove(game, player, cell) {
+        const playerColor = game.players[player];
+        
+        switch (game.step) {
+            case 'from':
+                return this.processFromStep(game, player, cell);
+                
+            case 'to':
+                return this.processToStep(game, player, cell);
+                
+            case 'take':
+                return this.processTakeStep(game, player, cell);
+                
+            default:
+                return { error: 'Invalid game step' };
+        }
+    }
+
+    /**
+     * Processa step 'from'
+     */
+    processFromStep(game, player, cell) {
+        // Verificar se cell tem uma peça do jogador
+        const piece = game.pieces[cell];
+        if (!piece || piece.player !== player) {
+            return { error: 'No piece at this position' };
+        }
+        
+        // Verificar se peça pode mover com o valor do dado
+        const moves = this.getPossibleMoves(game, player, game.dice.value);
+        const possibleMove = moves.find(m => m.from === cell);
+        
+        if (!possibleMove) {
+            return { error: 'Cannot move this piece' };
+        }
+        
+        // Se não houver capturas, executar movimento imediatamente
+        if (possibleMove.captures.length === 0) {
+            this.executeMove(game, cell, possibleMove.to, player);
+            game.step = 'from';
+            game.selected = [cell, possibleMove.to];
+            
+            // Registrar movimento
+            game.moves.push({
+                player,
+                from: cell,
+                to: possibleMove.to,
+                dice: game.dice,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Verificar se mantém turno
+            if (!game.dice.keepPlaying) {
+                this.nextTurn(game);
+            }
+            
+            return { success: true };
+        }
+        
+        // Se houver capturas, avançar para step 'take'
+        game.step = 'take';
+        game.selected = [cell];
+        game.pendingMove = possibleMove;
+        
+        return { success: true, step: 'take', captures: possibleMove.captures };
+    }
+
+    /**
+     * Processa step 'to'
+     */
+    processToStep(game, player, cell) {
+        // Completa um movimento já iniciado
+        if (!game.selected || game.selected.length !== 1) {
+            return { error: 'Invalid selection state' };
+        }
+        
+        const from = game.selected[0];
+        const possibleMoves = this.getPossibleMoves(game, player, game.dice.value);
+        const validMove = possibleMoves.find(m => m.from === from && m.to === cell);
         
         if (!validMove) {
-            return { valid: false, error: 'Movimento inválido' };
+            return { error: 'Invalid move: must play the dice\'s value' };
         }
         
-        // Verificar se a casa está ocupada por peça do mesmo jogador
-        if (player.pieces.includes(targetCell) && targetCell < 100) {
-            return { valid: false, error: 'Casa já ocupada por tua peça' };
+        // Verificar se está tentando capturar própria peça
+        const targetPiece = game.pieces[cell];
+        if (targetPiece && targetPiece.player === player) {
+            return { error: 'cannot capture to your own piece' };
         }
         
-        return { 
-            valid: true, 
-            from: validMove.from,
-            piece: validMove.piece 
-        };
+        this.executeMove(game, from, cell, player);
+        game.step = 'from';
+        game.selected = [from, cell];
+        
+        // Registrar movimento
+        game.moves.push({
+            player,
+            from: from,
+            to: cell,
+            dice: game.dice,
+            timestamp: new Date().toISOString()
+        });
+        
+        if (!game.dice.keepPlaying) {
+            this.nextTurn(game);
+        }
+        
+        return { success: true };
     }
 
-    executeMove(game, player, targetCell, diceValue) {
-        const moves = this.getPossibleMoves(game, player, diceValue);
-        const move = moves.find(m => m.to === targetCell);
+    /**
+     * Processa step 'take'
+     */
+    processTakeStep(game, player, cell) {
+        // O jogador deve escolher qual peça capturar
+        if (!game.pendingMove || !game.selected || game.selected.length !== 1) {
+            return { error: 'Invalid selection state' };
+        }
         
-        if (!move) return;
+        const from = game.selected[0];
+        const pendingMove = game.pendingMove;
         
+        if (!pendingMove.captures.includes(cell)) {
+            return { error: 'Invalid capture' };
+        }
+        
+        // Executar movimento com captura
+        this.executeMove(game, from, pendingMove.to, player, cell);
+        game.step = 'from';
+        game.selected = [from, pendingMove.to];
+        delete game.pendingMove;
+        
+        // Registrar movimento com captura
+        game.moves.push({
+            player,
+            from: from,
+            to: pendingMove.to,
+            capture: cell,
+            dice: game.dice,
+            timestamp: new Date().toISOString()
+        });
+        
+        if (!game.dice.keepPlaying) {
+            this.nextTurn(game);
+        }
+        
+        return { success: true };
+    }
+
+    /**
+     * Executa um movimento
+     */
+    executeMove(game, from, to, player, captureCell = null) {
         // Mover peça
-        player.pieces[move.piece] = targetCell;
+        const piece = game.pieces[from];
+        game.pieces[from] = null;
+        game.pieces[to] = piece;
         
-        // Verificar se capturou peça adversária
-        if (targetCell < 100) {
-            game.players.forEach(otherPlayer => {
-                if (otherPlayer.nick !== player.nick) {
-                    for (let i = 0; i < otherPlayer.pieces.length; i++) {
-                        if (otherPlayer.pieces[i] === targetCell) {
-                            // Mandar peça de volta para a base
-                            otherPlayer.pieces[i] = 0;
-                            break;
-                        }
-                    }
-                }
-            });
+        // Atualizar estado da peça
+        piece.inMotion = true;
+        
+        // Verificar se chegou à última linha
+        const playerColor = game.players[player];
+        const lastRowStart = playerColor === 'Blue' ? 3 * game.size : 0;
+        const lastRowEnd = playerColor === 'Blue' ? 4 * game.size : game.size;
+        
+        if (to >= lastRowStart && to < lastRowEnd) {
+            piece.reachedLastRow = true;
+        }
+        
+        // Capturar peça adversária se especificado
+        if (captureCell !== null && game.pieces[captureCell]) {
+            game.pieces[captureCell] = null;
         }
     }
 
-    canEnterFinalLane(player, currentPos, diceValue) {
-        // Lógica simplificada para entrar na reta final
-        // Em um Ludo real, isso depende da cor do jogador
-        const finalLaneStart = 50; // Ajustar conforme as regras
-        return currentPos >= finalLaneStart && (currentPos + diceValue) <= 56;
+    /**
+     * Valida um movimento
+     */
+    validateMove(game, from, to, player, diceValue) {
+        const playerColor = game.players[player];
+        const fromPiece = game.pieces[from];
+        
+        if (!fromPiece || fromPiece.player !== player) {
+            return { valid: false };
+        }
+        
+        // Verificar se está tentando mover para casa com própria peça
+        const toPiece = game.pieces[to];
+        if (toPiece && toPiece.player === player) {
+            return { valid: false };
+        }
+        
+        // Verificar capturas no caminho
+        const captures = this.getCapturesOnPath(game, from, to, player);
+        
+        return { valid: true, captures };
+    }
+
+    /**
+     * Obtém peças que podem ser capturadas no caminho
+     */
+    getCapturesOnPath(game, from, to, player) {
+        const captures = [];
+        const playerColor = game.players[player];
+        const direction = playerColor === 'Blue' ? 1 : -1;
+        const totalCells = game.size * 4;
+        
+        let current = from;
+        const visited = new Set();
+        
+        while (current !== to) {
+            current = (current + direction + totalCells) % totalCells;
+            
+            // Evitar loops infinitos
+            if (visited.has(current)) break;
+            visited.add(current);
+            
+            const piece = game.pieces[current];
+            if (piece && piece.player !== player) {
+                captures.push(current);
+            }
+        }
+        
+        return captures;
+    }
+
+    /**
+     * Avança para próximo turno
+     */
+    nextTurn(game) {
+        const players = Object.keys(game.players);
+        const currentIndex = players.indexOf(game.turn);
+        const nextIndex = (currentIndex + 1) % players.length;
+        
+        game.turn = players[nextIndex];
+        game.dice = null;
+        game.step = 'from';
+        game.selected = [];
+        game.mustPass = null;
+    }
+
+    /**
+     * Verifica se jogador ganhou
+     */
+    hasPlayerWon(game, player) {
+        const playerColor = game.players[player];
+        const lastRowStart = playerColor === 'Blue' ? 3 * game.size : 0;
+        const lastRowEnd = playerColor === 'Blue' ? 4 * game.size : game.size;
+        
+        // Verificar se todas as peças do jogador estão na última linha
+        for (let i = 0; i < game.pieces.length; i++) {
+            const piece = game.pieces[i];
+            if (piece && piece.player === player) {
+                // Peça não está na última linha
+                if (i < lastRowStart || i >= lastRowEnd) {
+                    return false;
+                }
+                // Peça não marcada como reachedLastRow
+                if (!piece.reachedLastRow) {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Configura timeout para jogo em espera
+     */
+    setWaitingTimeout(gameId, nick) {
+        const timeout = setTimeout(async () => {
+            const game = storage.getGame(gameId);
+            if (game && game.status === 'waiting') {
+                console.log(`⏰ Timeout: Jogo ${gameId} em espera há muito tempo`);
+                // Fechar jogo
+                storage.deleteGame(gameId);
+            }
+        }, 5 * 60 * 1000); // 5 minutos
+        
+        this.timeouts.set(`waiting_${gameId}`, timeout);
+    }
+
+    /**
+     * Configura timeout para jogada (2 minutos)
+     */
+    setGameTimeout(gameId) {
+        this.clearGameTimeout(gameId);
+        
+        const timeout = setTimeout(async () => {
+            const game = storage.getGame(gameId);
+            if (game && game.status === 'playing') {
+                console.log(`⏰ Timeout: Jogador ${game.turn} excedeu tempo no jogo ${gameId}`);
+                // Forçar leave do jogador atual
+                try {
+                    await this.leave(game.turn, 'timeout', gameId);
+                } catch (error) {
+                    // Ignorar erros de autenticação no timeout
+                }
+            }
+        }, 2 * 60 * 1000); // 2 minutos
+        
+        this.timeouts.set(`game_${gameId}`, timeout);
+    }
+
+    /**
+     * Limpa timeout do jogo
+     */
+    clearGameTimeout(gameId) {
+        const waitingKey = `waiting_${gameId}`;
+        const gameKey = `game_${gameId}`;
+        
+        if (this.timeouts.has(waitingKey)) {
+            clearTimeout(this.timeouts.get(waitingKey));
+            this.timeouts.delete(waitingKey);
+        }
+        
+        if (this.timeouts.has(gameKey)) {
+            clearTimeout(this.timeouts.get(gameKey));
+            this.timeouts.delete(gameKey);
+        }
     }
 }
 
-module.exports = new GameLogic();
+module.exports = new TabGame();
