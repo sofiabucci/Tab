@@ -1,18 +1,21 @@
 /**
- * @file online.js
+ * @file PlayerOn.js
  * @description Online multiplayer system for Tâb game
  * Integrates with existing classification system and game flow
+ * Updated to use ClientAPI for server communication
  */
 
 class OnlineGameManager {
     constructor() {
-        this.serverUrl = 'http://twserver.alunos.dcc.fc.up.pt:8008';
+        // Usar ClientAPI para comunicação com servidores
+        this.clientAPI = window.ClientAPI;
         this.currentGame = null;
         this.playerNick = null;
         this.playerPassword = null;
-        this.eventSource = null;
+        this.stopUpdateStream = null;
         this.isConnected = false;
         this.isMyTurn = false;
+        this.currentServer = 'group'; // Default
         
         this.initialize();
     }
@@ -22,7 +25,7 @@ class OnlineGameManager {
      */
     initialize() {
         this.loadPlayerCredentials();
-        console.log('Online game manager initialized');
+        console.log('Online game manager initialized - Using ClientAPI');
     }
 
     /**
@@ -31,16 +34,63 @@ class OnlineGameManager {
     loadPlayerCredentials() {
         this.playerNick = localStorage.getItem('tabOnlineNick');
         this.playerPassword = localStorage.getItem('tabOnlinePassword');
+        this.currentServer = localStorage.getItem('tabOnlineServer') || 'group';
+        
+        // Configurar servidor salvo
+        if (this.clientAPI) {
+            this.clientAPI.setServer(this.currentServer);
+        }
     }
 
     /**
      * Save player credentials to localStorage
      */
-    savePlayerCredentials(nick, password) {
+    savePlayerCredentials(nick, password, server = null) {
         this.playerNick = nick;
         this.playerPassword = password;
+        
+        if (server) {
+            this.currentServer = server;
+            this.clientAPI.setServer(server);
+        }
+        
         localStorage.setItem('tabOnlineNick', nick);
         localStorage.setItem('tabOnlinePassword', password);
+        localStorage.setItem('tabOnlineServer', this.currentServer);
+    }
+
+    /**
+     * Switch between servers
+     * @param {string} serverKey - 'official' ou 'group'
+     */
+    switchServer(serverKey) {
+        if (!this.clientAPI) return false;
+        
+        const switched = this.clientAPI.setServer(serverKey);
+        if (switched) {
+            this.currentServer = serverKey;
+            console.log(`Switched to server: ${serverKey}`);
+            
+            // Salvar preferência
+            localStorage.setItem('tabOnlineServer', serverKey);
+        }
+        return switched;
+    }
+
+    /**
+     * Get current server info
+     */
+    getServerInfo() {
+        if (!this.clientAPI) return null;
+        return this.clientAPI.getServerInfo();
+    }
+
+    /**
+     * Get server URL
+     */
+    get serverUrl() {
+        const info = this.getServerInfo();
+        return info ? info.url : '';
     }
 
     /**
@@ -86,6 +136,17 @@ class OnlineGameManager {
             modal.innerHTML = `
                 <div class="setup-container">
                     <h2>Registo para Jogo Online</h2>
+                    
+                    <div class="form-group">
+                        <label>Servidor:</label>
+                        <div class="server-selector">
+                            <button type="button" class="server-btn ${this.currentServer === 'group' ? 'active' : ''}" 
+                                    data-server="group">Group Server (8104)</button>
+                            <button type="button" class="server-btn ${this.currentServer === 'official' ? 'active' : ''}" 
+                                    data-server="official">Official Server (8008)</button>
+                        </div>
+                    </div>
+                    
                     <form id="registerForm">
                         <div class="form-group">
                             <label for="onlineNick">Nickname:</label>
@@ -107,6 +168,17 @@ class OnlineGameManager {
 
             const registerForm = modal.querySelector('#registerForm');
             const cancelBtn = modal.querySelector('#cancelOnline');
+            const serverBtns = modal.querySelectorAll('.server-btn');
+
+            // Server selection
+            serverBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    serverBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const serverKey = btn.dataset.server;
+                    this.switchServer(serverKey);
+                });
+            });
 
             registerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -115,9 +187,9 @@ class OnlineGameManager {
 
                 try {
                     await this.register(nick, password);
-                    this.savePlayerCredentials(nick, password);
+                    this.savePlayerCredentials(nick, password, this.currentServer);
                     modal.remove();
-                    resolve();
+                    resolve(true);
                 } catch (error) {
                     this.showError('Erro no registo: ' + error.message);
                 }
@@ -125,7 +197,7 @@ class OnlineGameManager {
 
             cancelBtn.addEventListener('click', () => {
                 modal.remove();
-                resolve();
+                resolve(false);
             });
         });
     }
@@ -134,13 +206,17 @@ class OnlineGameManager {
      * REGISTER - Register player on server
      */
     async register(nick, password) {
-        const response = await this.makeRequest('register', { nick, password });
+        if (!this.clientAPI) {
+            throw new Error('ClientAPI not available');
+        }
+        
+        const response = await this.clientAPI.register(nick, password);
         
         if (response.error) {
             throw new Error(response.error);
         }
 
-        console.log('Player registered successfully:', nick);
+        console.log('Player registered successfully on', this.currentServer, ':', nick);
         return response;
     }
 
@@ -148,12 +224,16 @@ class OnlineGameManager {
      * JOIN - Join online game
      */
     async joinGame(size) {
-        const response = await this.makeRequest('join', {
-            nick: this.playerNick,
-            password: this.playerPassword,
-            size: size,
-            game: 'tab'
-        });
+        if (!this.clientAPI) {
+            throw new Error('ClientAPI not available');
+        }
+
+        const response = await this.clientAPI.join(
+            this.playerNick,
+            this.playerPassword,
+            size,
+            null // null para criar novo jogo
+        );
 
         if (response.error) {
             throw new Error(response.error);
@@ -162,18 +242,15 @@ class OnlineGameManager {
         this.currentGame = {
             id: response.game,
             size: size,
-            players: response.players,
-            turn: response.turn,
-            pieces: response.pieces,
-            initial: response.initial
+            status: 'waiting',
+            server: this.currentServer
         };
 
-        this.isMyTurn = response.turn === this.playerNick;
-
+        console.log('Joined online game:', this.currentGame);
+        
         // Start listening for game updates
         this.startGameUpdates();
 
-        console.log('Joined online game:', this.currentGame);
         return response;
     }
 
@@ -181,14 +258,14 @@ class OnlineGameManager {
      * LEAVE - Leave current game
      */
     async leaveGame() {
-        if (!this.currentGame) return;
+        if (!this.currentGame || !this.clientAPI) return;
 
         try {
-            const response = await this.makeRequest('leave', {
-                nick: this.playerNick,
-                password: this.playerPassword,
-                game: this.currentGame.id
-            });
+            const response = await this.clientAPI.leave(
+                this.playerNick,
+                this.playerPassword,
+                this.currentGame.id
+            );
 
             if (response.error) {
                 console.error('Error leaving game:', response.error);
@@ -207,15 +284,15 @@ class OnlineGameManager {
      * ROLL - Roll dice in online game
      */
     async rollDice() {
-        if (!this.currentGame || !this.isMyTurn) return;
+        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) return;
 
         try {
-            const response = await this.makeRequest('roll', {
-                nick: this.playerNick,
-                password: this.playerPassword,
-                game: this.currentGame.id,
-                cell: 0 // Cell parameter for roll
-            });
+            const response = await this.clientAPI.roll(
+                this.playerNick,
+                this.playerPassword,
+                this.currentGame.id,
+                0 // Cell parameter for roll
+            );
 
             if (response.error) {
                 this.showError('Erro ao lançar dados: ' + response.error);
@@ -234,15 +311,15 @@ class OnlineGameManager {
      * PASS - Pass turn in online game
      */
     async passTurn() {
-        if (!this.currentGame || !this.isMyTurn) return;
+        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) return;
 
         try {
-            const response = await this.makeRequest('pass', {
-                nick: this.playerNick,
-                password: this.playerPassword,
-                game: this.currentGame.id,
-                cell: 0
-            });
+            const response = await this.clientAPI.passTurn(
+                this.playerNick,
+                this.playerPassword,
+                this.currentGame.id,
+                0
+            );
 
             if (response.error) {
                 this.showError('Erro ao passar vez: ' + response.error);
@@ -261,17 +338,18 @@ class OnlineGameManager {
      * NOTIFY - Notify server of a move
      */
     async notifyMove(fromCell, toCell) {
-        if (!this.currentGame || !this.isMyTurn) return;
+        if (!this.currentGame || !this.isMyTurn || !this.clientAPI) return;
 
         try {
-            const moveCode = this.encodeMove(fromCell, toCell);
+            // Encode move as a single cell value
+            const moveCode = fromCell * 100 + toCell;
             
-            const response = await this.makeRequest('notify', {
-                nick: this.playerNick,
-                password: this.playerPassword,
-                game: this.currentGame.id,
-                cell: moveCode
-            });
+            const response = await this.clientAPI.notify(
+                this.playerNick,
+                this.playerPassword,
+                this.currentGame.id,
+                moveCode
+            );
 
             if (response.error) {
                 this.showError('Erro na jogada: ' + response.error);
@@ -290,39 +368,39 @@ class OnlineGameManager {
      * UPDATE - Start listening for game updates via Server-Sent Events
      */
     startGameUpdates() {
-        if (!this.currentGame) return;
+        if (!this.currentGame || !this.clientAPI) return;
 
-        const updateUrl = `${this.serverUrl}/update?game=${this.currentGame.id}&nick=${this.playerNick}`;
-        
-        this.eventSource = new EventSource(updateUrl);
-        
-        this.eventSource.onmessage = (event) => {
-            try {
-                const update = JSON.parse(event.data);
+        // Stop previous stream if exists
+        if (this.stopUpdateStream) {
+            this.stopUpdateStream();
+        }
+
+        // Start new stream using ClientAPI
+        this.stopUpdateStream = this.clientAPI.startUpdateStream(
+            this.currentGame.id,
+            this.playerNick,
+            (update) => {
                 console.log('Game update received:', update);
                 this.handleServerResponse(update);
-            } catch (error) {
-                console.error('Error parsing game update:', error);
+            },
+            (error) => {
+                console.error('SSE error:', error);
+                this.showError('Conexão com o servidor perdida');
+                this.isConnected = false;
             }
-        };
-
-        this.eventSource.onerror = (error) => {
-            console.error('SSE error:', error);
-            this.showError('Conexão com o servidor perdida');
-            this.isConnected = false;
-        };
+        );
 
         this.isConnected = true;
-        console.log('Started listening for game updates');
+        console.log('Started listening for game updates via ClientAPI');
     }
 
     /**
      * Stop listening for game updates
      */
     stopGameUpdates() {
-        if (this.eventSource) {
-            this.eventSource.close();
-            this.eventSource = null;
+        if (this.stopUpdateStream) {
+            this.stopUpdateStream();
+            this.stopUpdateStream = null;
         }
         this.isConnected = false;
         console.log('Stopped listening for game updates');
@@ -507,9 +585,9 @@ class OnlineGameManager {
                 opponent,
                 winner,
                 Math.floor((Date.now() - window.game.gameStartTime) / 1000),
-                isWin ? 9 : 0, // pieces remaining - ajustar conforme necessário
-                9, // total pieces
-                'pvpo', // player vs player online
+                isWin ? 9 : 0,
+                9,
+                this.currentServer === 'official' ? 'pvpOS' : 'pvpGS',
                 false,
                 null
             );
@@ -542,7 +620,6 @@ class OnlineGameManager {
      */
     handleSelectedCells(selected) {
         console.log('Selected cells:', selected);
-        // Implement cell highlighting for move selection
         this.highlightCells(selected);
     }
 
@@ -571,8 +648,8 @@ class OnlineGameManager {
         // Use existing game initialization with online mode
         if (typeof generateBoard === 'function') {
             const options = {
-                mode: 'pvpo',
-                firstPlayer: 'player-1' // Server will handle actual first player
+                mode: this.currentServer === 'official' ? 'pvpOS' : 'pvpGS',
+                firstPlayer: 'player-1'
             };
             window.game = generateBoard(boardSize, options);
         }
@@ -582,39 +659,36 @@ class OnlineGameManager {
      * Get opponent name
      */
     getOpponentName() {
-        if (!this.currentGame.players) return 'Oponente';
+        if (!this.currentGame || !this.currentGame.players) return 'Oponente';
         return this.currentGame.players.find(p => p !== this.playerNick) || 'Oponente';
-    }
-
-    /**
-     * Encode move for server (simplified)
-     */
-    encodeMove(fromCell, toCell) {
-        // Simple encoding: fromCell * 100 + toCell
-        return fromCell * 100 + toCell;
     }
 
     /**
      * Make request to server
      */
     async makeRequest(endpoint, data) {
-        try {
-            const response = await fetch(`${this.serverUrl}/${endpoint}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error(`Request to ${endpoint} failed:`, error);
-            throw new Error('Falha de comunicação com o servidor');
+        if (!this.clientAPI) {
+            throw new Error('ClientAPI not available');
+        }
+        
+        // Usar ClientAPI baseado no endpoint
+        switch(endpoint) {
+            case 'register':
+                return await this.clientAPI.register(data.nick, data.password);
+            case 'join':
+                return await this.clientAPI.join(data.nick, data.password, data.size, data.game);
+            case 'leave':
+                return await this.clientAPI.leave(data.nick, data.password, data.game);
+            case 'roll':
+                return await this.clientAPI.roll(data.nick, data.password, data.game, data.cell);
+            case 'pass':
+                return await this.clientAPI.passTurn(data.nick, data.password, data.game, data.cell);
+            case 'notify':
+                return await this.clientAPI.notify(data.nick, data.password, data.game, data.cell);
+            case 'ranking':
+                return await this.clientAPI.getRanking(data.size);
+            default:
+                throw new Error(`Unknown endpoint: ${endpoint}`);
         }
     }
 
@@ -623,7 +697,7 @@ class OnlineGameManager {
      */
     async getRanking(group = 99, size = 20) {
         try {
-            const response = await this.makeRequest('ranking', { group, size });
+            const response = await this.clientAPI.getRanking(size);
             
             if (response.error) {
                 throw new Error(response.error);
@@ -634,6 +708,14 @@ class OnlineGameManager {
             console.error('Error getting ranking:', error);
             return [];
         }
+    }
+
+    /**
+     * Test server connection
+     */
+    async testServerConnection() {
+        if (!this.clientAPI) return false;
+        return await this.clientAPI.testConnection();
     }
 
     /**
@@ -663,7 +745,9 @@ class OnlineGameManager {
             isConnected: this.isConnected,
             currentGame: this.currentGame,
             playerNick: this.playerNick,
-            isMyTurn: this.isMyTurn
+            isMyTurn: this.isMyTurn,
+            server: this.currentServer,
+            serverInfo: this.getServerInfo()
         };
     }
 }

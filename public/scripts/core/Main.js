@@ -43,7 +43,7 @@ class GameBoard {
      * @param {string} id - The ID of the board container element
      * @param {number} cols - Number of columns for the board
      * @param {Object} options - Game configuration options
-     * @param {string} options.mode - Game mode ('pvp', 'pvc', 'pvpo')
+     * @param {string} options.mode - Game mode ('pvpL', 'pvc', 'pvpOS', 'pvpGS')
      * @param {string} options.difficulty - AI difficulty ('easy', 'medium', 'hard')
      * @param {string} options.firstPlayer - Starting player ({@link Player.P1} or {@link Player.P2})
      */
@@ -65,7 +65,7 @@ class GameBoard {
 
         /** @type {Object} */
         this.options = {
-            mode: options.mode || 'pvp',
+            mode: options.mode || 'pvpL',
             difficulty: options.difficulty || 'medium',
             firstPlayer: options.firstPlayer || Player.P1
         };

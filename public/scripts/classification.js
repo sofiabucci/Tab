@@ -5,14 +5,16 @@
 
 class Classification {
     constructor() {
-
         // ---- LOCAL STORAGE ----
         this.storageKey = "tabLocalRanking";
         this.localStats = this.loadLocalStats();
 
-        // ---- ONLINE RANKING DATA ----
-        this.serverURL = "http://twserver.alunos.dcc.fc.up.pt:8008";
-        this.onlineStats = [];
+        // ---- ONLINE SERVERS ----
+        this.server8008 = "http://twserver.alunos.dcc.fc.up.pt:8008";
+        this.server8104 = "http://twserver.alunos.dcc.fc.up.pt:8104";
+        
+        this.onlineStats8008 = [];
+        this.onlineStats8104 = [];
 
         // init
         this.setup();
@@ -23,38 +25,47 @@ class Classification {
     // --------------------------
     setup() {
         document.addEventListener("DOMContentLoaded", () => {
-
-            // When modal opens, refresh both tables
+            // Quando modal abre
             const classBtn = document.getElementById("classBtn");
             if (classBtn) {
                 classBtn.addEventListener("click", () => {
                     this.renderLocal();
-                    this.loadOnline();
+                    this.loadOnline8008();
+                    this.loadOnline8104();
                 });
             }
 
-            // Buttons
+            // Botão Refresh
             document.getElementById("refreshClassification")
                 ?.addEventListener("click", () => {
                     this.renderLocal();
-                    this.loadOnline();
+                    this.loadOnline8008();
+                    this.loadOnline8104();
                 });
 
+            // Botão Clear Local
             document.getElementById("clearClassification")
                 ?.addEventListener("click", () => {
-                    if (confirm("Delete local ranking?")) {
+                    if (confirm("Delete all local ranking data?")) {
                         this.localStats = {};
                         this.saveLocalStats();
                         this.renderLocal();
                     }
                 });
 
+            // Botão Close
+            document.getElementById("closeClassification")
+                ?.addEventListener("click", () => {
+                    document.getElementById("classModal").classList.add("hidden");
+                });
+
             // Tabs
             this.setupTabs();
 
-            // First load
+            // Primeira carga
             this.renderLocal();
-            this.loadOnline();
+            this.loadOnline8008();
+            this.loadOnline8104();
         });
     }
 
@@ -62,10 +73,8 @@ class Classification {
         const buttons = document.querySelectorAll(".classification-tab-btn");
         const panes = document.querySelectorAll(".classification-tab-pane");
 
-
         buttons.forEach(btn => {
             btn.addEventListener("click", () => {
-
                 // button state
                 buttons.forEach(b => b.classList.remove("active"));
                 btn.classList.add("active");
@@ -73,10 +82,6 @@ class Classification {
                 // pane state
                 panes.forEach(p => p.classList.remove("active"));
                 document.getElementById(btn.dataset.tab + "Tab").classList.add("active");
-
-                if (btn.dataset.tab === "online") {
-                    this.loadOnline();
-                }
             });
         });
     }
@@ -85,22 +90,38 @@ class Classification {
     // LOCAL STORAGE
     // --------------------------
     loadLocalStats() {
-        return JSON.parse(localStorage.getItem(this.storageKey) || "{}");
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            return data ? JSON.parse(data) : {};
+        } catch (e) {
+            console.error("Error loading local stats:", e);
+            return {};
+        }
     }
 
     saveLocalStats() {
-        localStorage.setItem(this.storageKey, JSON.stringify(this.localStats));
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.localStats));
+        } catch (e) {
+            console.error("Error saving local stats:", e);
+        }
     }
 
     /**
-     * Called by game engine to record match results
+     * Registrar resultado de jogo local
      */
     recordResult(player, won) {
+        if (!player || typeof player !== 'string') return;
+
         if (!this.localStats[player]) {
             this.localStats[player] = { wins: 0, losses: 0 };
         }
-        if (won) this.localStats[player].wins++;
-        else this.localStats[player].losses++;
+
+        if (won) {
+            this.localStats[player].wins++;
+        } else {
+            this.localStats[player].losses++;
+        }
 
         this.saveLocalStats();
         this.renderLocal();
@@ -115,83 +136,242 @@ class Classification {
 
         tbody.innerHTML = "";
 
-        const players = Object.entries(this.localStats).map(([name, s]) => {
-            const total = s.wins + s.losses;
-            const rate = total ? ((s.wins / total) * 100).toFixed(1) + "%" : "0%";
-            return { name, wins: s.wins, losses: s.losses, rate };
-        });
+        const players = Object.entries(this.localStats)
+            .map(([name, stats]) => {
+                const wins = stats.wins || 0;
+                const losses = stats.losses || 0;
+                const total = wins + losses;
+                const rate = total > 0 ? ((wins / total) * 100).toFixed(1) + "%" : "0%";
+                
+                return { name, wins, losses, rate, total };
+            })
+            .filter(player => player.total > 0);
 
-        players.sort((a, b) => b.wins - a.wins);
+        // Ordenar por vitórias (decrescente), depois por menor número de derrotas
+        players.sort((a, b) => {
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            return a.losses - b.losses;
+        });
 
         if (players.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" class="empty">No local data</td></tr>`;
             return;
         }
 
-        players.forEach((p, i) => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${i + 1}</td>
-                    <td>${p.name}</td>
-                    <td>${p.wins}</td>
-                    <td>${p.losses}</td>
-                    <td>${p.rate}</td>
-                </tr>
+        players.forEach((player, index) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${player.name}</td>
+                <td>${player.wins}</td>
+                <td>${player.losses}</td>
+                <td>${player.rate}</td>
             `;
+            tbody.appendChild(row);
         });
     }
 
     // --------------------------
-    // RENDER: ONLINE RANKING
+    // SERVER 8008
     // --------------------------
-    async loadOnline() {
-
-        const tbody = document.getElementById("onlineRankingBody");
+    async loadOnline8008() {
+        const tbody = document.getElementById("online8008Body");
         if (!tbody) return;
 
-        tbody.innerHTML = `<tr><td colspan="5" class="loading">Loading...</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="loading">Loading server 8008...</td></tr>`;
 
         try {
-            const req = await fetch(`${this.serverURL}/ranking`);
-            const json = await req.json();
+            const response = await this.fetchRanking(this.server8008);
+            
+            if (!response || !response.ranking) {
+                throw new Error("Invalid response from server 8008");
+            }
 
-            if (!json.ranking) throw "Invalid response";
+            // Processar dados do ranking
+            this.onlineStats8008 = response.ranking.map(item => ({
+                nick: item.nick || "Unknown",
+                victories: parseInt(item.victories) || 0,
+                games: parseInt(item.games) || 0
+            }));
 
-            this.onlineStats = json.ranking;
-            this.renderOnline();
+            // Ordenar por número de vitórias (decrescente)
+            this.onlineStats8008.sort((a, b) => b.victories - a.victories);
 
-        } catch (e) {
-            tbody.innerHTML =
-                `<tr><td colspan="5" class="error">Server unavailable</td></tr>`;
+            this.renderOnline8008();
+
+        } catch (error) {
+            console.error("Server 8008 error:", error);
+            tbody.innerHTML = `<tr><td colspan="5" class="error">Server 8008 unavailable</td></tr>`;
         }
     }
 
-    renderOnline() {
-        const tbody = document.getElementById("onlineRankingBody");
+    renderOnline8008() {
+        const tbody = document.getElementById("online8008Body");
         if (!tbody) return;
 
         tbody.innerHTML = "";
 
-        if (this.onlineStats.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="empty">No online data</td></tr>`;
+        if (this.onlineStats8008.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty">No data from server 8008</td></tr>`;
             return;
         }
 
-        this.onlineStats.forEach((p, i) => {
-            const losses = p.games - p.victories;
-            const rate = p.games ? ((p.victories / p.games) * 100).toFixed(1) + "%" : "0%";
+        this.onlineStats8008.forEach((player, index) => {
+            // Calcular derrotas: total de jogos - vitórias
+            const losses = player.games - player.victories;
+            
+            // Calcular win rate
+            const rate = player.games > 0 
+                ? ((player.victories / player.games) * 100).toFixed(1) + "%" 
+                : "0%";
 
-            tbody.innerHTML += `
-                <tr>
-                    <td>${i + 1}</td>
-                    <td>${p.nick}</td>
-                    <td>${p.victories}</td>
-                    <td>${losses}</td>
-                    <td>${rate}</td>
-                </tr>
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${player.nick}</td>
+                <td>${player.victories}</td>
+                <td>${losses}</td>
+                <td>${rate}</td>
             `;
+            tbody.appendChild(row);
         });
+    }
+
+    // --------------------------
+    // SERVER 8104
+    // --------------------------
+    async loadOnline8104() {
+        const tbody = document.getElementById("online8104Body");
+        if (!tbody) return;
+
+        tbody.innerHTML = `<tr><td colspan="5" class="loading">Loading server 8104...</td></tr>`;
+
+        try {
+            const response = await this.fetchRanking(this.server8104);
+            
+            if (!response || !response.ranking) {
+                throw new Error("Invalid response from server 8104");
+            }
+
+            // Processar dados do ranking
+            this.onlineStats8104 = response.ranking.map(item => ({
+                nick: item.nick || "Unknown",
+                victories: parseInt(item.victories) || 0,
+                games: parseInt(item.games) || 0
+            }));
+
+            // Ordenar por número de vitórias (decrescente)
+            this.onlineStats8104.sort((a, b) => b.victories - a.victories);
+
+            this.renderOnline8104();
+
+        } catch (error) {
+            console.error("Server 8104 error:", error);
+            tbody.innerHTML = `<tr><td colspan="5" class="error">Server 8104 unavailable</td></tr>`;
+        }
+    }
+
+    renderOnline8104() {
+        const tbody = document.getElementById("online8104Body");
+        if (!tbody) return;
+
+        tbody.innerHTML = "";
+
+        if (this.onlineStats8104.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty">No data from server 8104</td></tr>`;
+            return;
+        }
+
+        this.onlineStats8104.forEach((player, index) => {
+            // Calcular derrotas: total de jogos - vitórias
+            const losses = player.games - player.victories;
+            
+            // Calcular win rate
+            const rate = player.games > 0 
+                ? ((player.victories / player.games) * 100).toFixed(1) + "%" 
+                : "0%";
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${player.nick}</td>
+                <td>${player.victories}</td>
+                <td>${losses}</td>
+                <td>${rate}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    // --------------------------
+    // HELPER: FETCH RANKING
+    // --------------------------
+    async fetchRanking(serverUrl) {
+        try {
+            // Tentar usar ClientAPI se disponível
+            if (window.ClientAPI) {
+                // Determinar qual servidor usar
+                if (serverUrl.includes('8008')) {
+                    const currentServer = window.ClientAPI._internal.currentServer;
+                    window.ClientAPI.setServer('official');
+                    const result = await window.ClientAPI.getRanking(20);
+                    window.ClientAPI.setServer(currentServer);
+                    return result;
+                } else if (serverUrl.includes('8104')) {
+                    const currentServer = window.ClientAPI._internal.currentServer;
+                    window.ClientAPI.setServer('group');
+                    const result = await window.ClientAPI.getRanking(20);
+                    window.ClientAPI.setServer(currentServer);
+                    return result;
+                }
+            }
+
+            // Fallback: fetch direto
+            const response = await fetch(`${serverUrl}/ranking`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ size: 20 })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            return await response.json();
+
+        } catch (error) {
+            console.error(`Fetch error for ${serverUrl}:`, error);
+            throw error;
+        }
+    }
+
+    // --------------------------
+    // UTILITÁRIOS
+    // --------------------------
+    /**
+     * Obter estatísticas de um jogador local
+     */
+    getPlayerStats(playerName) {
+        return this.localStats[playerName] || { wins: 0, losses: 0 };
+    }
+
+    /**
+     * Obter ranking local formatado
+     */
+    getLocalRanking() {
+        return Object.entries(this.localStats)
+            .map(([name, stats]) => ({
+                name,
+                wins: stats.wins || 0,
+                losses: stats.losses || 0,
+                total: (stats.wins || 0) + (stats.losses || 0)
+            }))
+            .filter(p => p.total > 0)
+            .sort((a, b) => b.wins - a.wins);
     }
 }
 
+// Inicializar globalmente
 window.classification = new Classification();

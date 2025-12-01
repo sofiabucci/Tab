@@ -9,16 +9,14 @@
   <link rel="stylesheet" href="styles/dice.css">
   <link rel="stylesheet" href="styles/game-section.css">
   <link rel="stylesheet" href="styles/modals.css">
-  <link rel="stylesheet" href="styles/online.css">
   <script type="module" src="scripts/core/Main.js"></script>
   <script type="module" src="scripts/ia.js"></script>
   <script src="scripts/navbar.js"></script>
   <script src="scripts/setup.js"></script>
   <script src="scripts/dice.js"></script>
-  <script src="scripts/online.js"></script>
   <script src="scripts/classification.js"></script>
   <script src="scripts/auth.js"></script>
-  <script src="scripts/core/ServerAPI.js"></script>
+  <script src="scripts/core/ClientAPI.js"></script>
 </head>
 <body>
 
@@ -80,9 +78,10 @@
         <div class="form-group">
           <label for="gameMode">Game Mode:</label>
           <select id="gameMode">
-            <option value="pvp">Player vs Player</option>
+            <option value="pvpLocal">Player vs Player (Local)</option>
             <option value="pvc">Player vs Computer</option>
-            <option value="pvpo">Player vs Player (Online)</option>
+            <option value="pvpOS">Player vs Player (Official Server)</option>
+            <option value="pvpGS">Player vs Player (Group Server)</option>
           </select>
         </div>
 
@@ -204,15 +203,17 @@
       <h2>Game Classification</h2>
 
       <div class="classification-tabs">
-        <button class="classification-tab-btn active" data-tab="local">Local 💾</button>
-        <button class="classification-tab-btn" data-tab="online">Online 🌐</button>
+        <button class="classification-tab-btn active" data-tab="local">Local</button>
+        <button class="classification-tab-btn" data-tab="online8008">Official Server</button>
+        <button class="classification-tab-btn" data-tab="online8104">Group Server</button>
       </div>
 
+      <!-- Local Ranking Tab -->
       <div class="classification-tab-pane active" id="localTab">
         <table class="classification-table">
           <thead>
             <tr>
-              <th>Rank</th>
+              <th>#</th>
               <th>Player</th>
               <th>Wins</th>
               <th>Losses</th>
@@ -223,24 +224,42 @@
         </table>
       </div>
 
-      <div class="classification-tab-pane" id="onlineTab">
+      <!-- Server 8008 Ranking Tab -->
+      <div class="classification-tab-pane" id="online8008Tab">
         <table class="classification-table">
           <thead>
             <tr>
-              <th>Rank</th>
+              <th>#</th>
               <th>Player</th>
               <th>Wins</th>
               <th>Losses</th>
               <th>Win Rate</th>
             </tr>
           </thead>
-          <tbody id="onlineRankingBody"></tbody>
+          <tbody id="online8008Body"></tbody>
+        </table>
+      </div>
+
+      <!-- Server 8104 Ranking Tab -->
+      <div class="classification-tab-pane" id="online8104Tab">
+        <table class="classification-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              <th>Wins</th>
+              <th>Losses</th>
+              <th>Win Rate</th>
+            </tr>
+          </thead>
+          <tbody id="online8104Body"></tbody>
         </table>
       </div>
 
       <div class="classification-controls">
-        <button id="refreshClassification">Refresh</button>
+        <button id="refreshClassification">Refresh All</button>
         <button id="clearClassification">Clear Local</button>
+        <button id="closeClassification">Close</button>
       </div>
     </div>
   </div>
