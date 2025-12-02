@@ -158,8 +158,8 @@ async function handleRanking(req, res, query) {
     }
     
     const sizeNum = parseInt(size);
-    if (isNaN(sizeNum) || sizeNum % 2 === 0) {
-        return sendResponse(res, 400, { error: `Invalid size '${size}'` });
+    if (isNaN(sizeNum) || sizeNum % 2 === 0 || sizeNum < 7 || sizeNum > 15) {
+        return sendResponse(res, 400, { error: `Invalid size '${size}' - must be odd number between 7 and 15` });
     }
 
     try {

@@ -110,10 +110,10 @@ class GameBoard {
      */
     initializeOnlineGame() {
         console.log('Initializing online game mode:', this.options.mode);
-        
+
         // Determine server based on mode
         const serverKey = this.options.mode === 'pvpOS' ? 'official' : 'group';
-        
+
         // Get credentials for this server
         const credentials = GameBoard.getServerCredentials(serverKey);
         if (!credentials) {
@@ -121,20 +121,20 @@ class GameBoard {
             this.showMessage('Please login to play online');
             return;
         }
-        
-        // Ensure online game manager exists
-        if (!window.onlineGameManager) {
-            console.error('Online game manager not available');
+
+        // Get or create online game manager
+        const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
+        if (!onlineManager) {
             this.showMessage('Online system not available');
             return;
         }
-        
+
         // Switch to correct server
-        window.onlineGameManager.switchServer(serverKey);
-        
+        onlineManager.switchServer(serverKey);
+
         // Set up online-specific overrides
         this.setupOnlineOverrides();
-        
+
         this.onlineInitialized = true;
         console.log('Online game initialized for server:', serverKey);
     }
@@ -143,82 +143,82 @@ class GameBoard {
      * Set up method overrides for online gameplay
      */
     setupOnlineOverrides() {
-        if (!window.onlineGameManager) return;
-        
-        const onlineManager = window.onlineGameManager;
-        
+        // Get online manager
+        const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
+        if (!onlineManager) return;
+
         // Store original methods
         this.originalMovePiece = this.movePiece;
         this.originalPassTurn = this.passTurn;
         this.originalResign = this.resign;
         this.originalHandleStickRoll = this.handleStickRoll;
-        
+
         // Override movePiece to send to server
         this.movePiece = (from, to, diceValue) => {
             console.log('Online movePiece called:', { from, to, diceValue });
-            
+
             // First validate locally
             if (!this.isValidMove(from, to, diceValue || this.getLastRoll())) {
                 this.showMessage('Invalid move');
                 return false;
             }
-            
+
             // Execute move locally
             const result = this.originalMovePiece.call(this, from, to, diceValue);
-            
+
             // Send to server if successful
             if (result && onlineManager.isMyTurn) {
                 onlineManager.notifyMove(from, to);
             }
-            
+
             return result;
         };
-        
+
         // Override passTurn to send to server
         this.passTurn = () => {
             console.log('Online passTurn called');
-            
+
             // Validate locally first
             if (this.checkValidMoves()) {
                 this.showMessage('You have valid moves - cannot pass!');
                 return;
             }
-            
+
             // Execute locally
             this.originalPassTurn.call(this);
-            
+
             // Send to server if it's our turn
             if (onlineManager.isMyTurn) {
                 onlineManager.passTurn();
             }
         };
-        
+
         // Override resign to leave online game
         this.resign = () => {
             console.log('Online resign called');
-            
+
             // Leave online game
             if (onlineManager.currentGame) {
                 onlineManager.leaveGame();
             }
-            
+
             // Execute original resign
             this.originalResign.call(this);
         };
-        
+
         // Override handleStickRoll to send to server
         this.handleStickRoll = (roll) => {
             console.log('Online handleStickRoll called:', roll);
-            
+
             // Execute original
             this.originalHandleStickRoll.call(this, roll);
-            
+
             // Send roll to server if it's our turn
             if (onlineManager.isMyTurn && !this.diceRolled) {
                 onlineManager.rollDice();
             }
         };
-        
+
         console.log('Online method overrides setup complete');
     }
 
@@ -239,7 +239,8 @@ class GameBoard {
         }
 
         // Check if it's our turn in online game
-        if (window.onlineGameManager && !window.onlineGameManager.isMyTurn) {
+        const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
+        if (onlineManager && !onlineManager.isMyTurn) {
             this.showMessage("Wait for opponent's move");
             return 102;
         }
@@ -258,10 +259,11 @@ class GameBoard {
      * Update online game UI
      */
     updateOnlineUI() {
-        if (!this.isOnlineGame() || !window.onlineGameManager) return;
-        
-        const onlineManager = window.onlineGameManager;
-        
+        if (!this.isOnlineGame()) return;
+
+        const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
+        if (!onlineManager) return;
+
         // Update dice button
         const rollBtn = document.getElementById('rollDiceBtn');
         if (rollBtn) {
@@ -273,7 +275,7 @@ class GameBoard {
                 rollBtn.style.opacity = '0.5';
             }
         }
-        
+
         // Update pass button
         const passBtn = document.getElementById('passBtn');
         if (passBtn) {
@@ -285,7 +287,7 @@ class GameBoard {
                 passBtn.style.opacity = '0.5';
             }
         }
-        
+
         // Update message
         if (onlineManager.isMyTurn) {
             if (this.diceRolled) {
@@ -303,15 +305,16 @@ class GameBoard {
      * @returns {number | null} - Returns value of the last roll (from window.lastRoll.value) or null.
      */
     getLastRoll() {
-        if (window.lastRoll && window.lastRoll.value){
+        if (window.lastRoll && window.lastRoll.value) {
             return window.lastRoll.value;
         }
 
         console.error("Could not get LastRoll");
         return null;
     }
+
     /** @param {Object | null} obj */
-    setLastRoll(obj){
+    setLastRoll(obj) {
         window.lastRoll = obj;
     }
 
@@ -335,9 +338,12 @@ class GameBoard {
         }
 
         // For online games, check if it's our turn
-        if (this.isOnlineGame() && window.onlineGameManager && !window.onlineGameManager.isMyTurn) {
-            this.showMessage("Wait for opponent's move");
-            return 102;
+        if (this.isOnlineGame()) {
+            const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
+            if (onlineManager && !onlineManager.isMyTurn) {
+                this.showMessage("Wait for opponent's move");
+                return 102;
+            }
         }
 
         // Check if dice has been rolled
@@ -358,34 +364,34 @@ class GameBoard {
             // Choose token
             case GameBoard.GAME_STATES.IDLE:
                 const validToken = this.handleTokenSelect(i, diceValue);
-                if(validToken){
+                if (validToken) {
 
                     const targets = this.movementCalculator.calculateTarget(this.selectedTokenIndex, diceValue);
-                    console.log("handleClick: Trying Automove " + JSON.stringify({selected: this.selectedTokenIndex, dice:diceValue, out:targets}));
-                    
-                    if(targets.length === 1){ //only 1 path. index 0 is always valid.
+                    console.log("handleClick: Trying Automove " + JSON.stringify({ selected: this.selectedTokenIndex, dice: diceValue, out: targets }));
+
+                    if (targets.length === 1) { //only 1 path. index 0 is always valid.
                         this.handleTargetSelect(targets[0], diceValue);
 
-                    }else if (targets.length === 2){ // 2 paths. Check if index 1 is valid.
+                    } else if (targets.length === 2) { // 2 paths. Check if index 1 is valid.
                         const flag = this.isValidMove(i, targets[1], diceValue);
 
-                        if(flag === false){
+                        if (flag === false) {
                             this.handleTargetSelect(targets[0], diceValue);
-                        }else{
+                        } else {
                             this.showMessage("Choose Destination");
                         }
                     }
-                }else{
-                    console.log("handleClick: Invalid target: " + JSON.stringify({i:i, diceValue:diceValue}));
+                } else {
+                    console.log("handleClick: Invalid target: " + JSON.stringify({ i: i, diceValue: diceValue }));
                 }
                 break;
             // Choose target once token is selected
             case GameBoard.GAME_STATES.TOKEN_SELECTED:
-                console.log("handleClick: Invalid target " + JSON.stringify({i:i, diceValue:diceValue}));
+                console.log("handleClick: Invalid target " + JSON.stringify({ i: i, diceValue: diceValue }));
                 this.handleTargetSelect(i, diceValue);
                 break;
             default:
-                console.error("handleClick: Bad GameState "+ this.gameState);
+                console.error("handleClick: Bad GameState " + this.gameState);
                 this.resetGameState();
         }
 
@@ -407,29 +413,30 @@ class GameBoard {
      * @param {number} diceValue - Current dice value.
      * @returns {boolean} - True on successful selection, false otherwise.
      */
-    handleTokenSelect(i, diceValue) {     
-        console.log('handleTokenSelect: ... ' + JSON.stringify({index:i, dice:diceValue}));   
+    handleTokenSelect(i, diceValue) {
+        console.log('handleTokenSelect: ... ' + JSON.stringify({ index: i, dice: diceValue }));
         const piece = this.board.getPieceAt(i);
 
         if (!piece || piece.player !== this.currentPlayer) {
             this.showMessage('Select your piece');
-            console.log('handleTokenSelect: bad piece, ' + JSON.stringify({piece:piece, index:i, dice:diceValue}));
+            console.log('handleTokenSelect: bad piece, ' + JSON.stringify({ piece: piece, index: i, dice: diceValue }));
             return false;
         }
-        
+
         // Check first move rule (only with Tâb)
         if (piece.state === Piece.UNMOVED && diceValue !== 1) {
             this.showMessage('First move must be with Tâb (1)');
             console.log('handleTokenSelect: First move must be with Tâb (1)');
             return false;
         }
-        
+
         // Valid token selected
         this.gameState = GameBoard.GAME_STATES.TOKEN_SELECTED;
         this.selectedTokenIndex = i;
-        console.log('handleTokenSelect: ok, ' + JSON.stringify({index:i, dice:diceValue}));
+        console.log('handleTokenSelect: ok, ' + JSON.stringify({ index: i, dice: diceValue }));
         return true;
     }
+
     /**
      * Attempts to move previously selected piece to a target. Validates via isValidMove and
      * calls movePiece on success. Deselects and resets state on invalid attempts.
@@ -438,11 +445,11 @@ class GameBoard {
      * @returns {boolean} - True if move performed, false otherwise.
      */
     handleTargetSelect(targetIndex, diceValue) {
-        console.log('handleTargetSelect: Start ' + JSON.stringify({target:targetIndex, dice:diceValue}));
+        console.log('handleTargetSelect: Start ' + JSON.stringify({ target: targetIndex, dice: diceValue }));
 
         if (this.selectedTokenIndex === null || this.selectedTokenIndex === targetIndex) {
             // Deselect
-            console.log('handleTargetSelect: token deselected ' + JSON.stringify({selected: this.selectedTokenIndex, target:targetIndex, dice:diceValue}));
+            console.log('handleTargetSelect: token deselected ' + JSON.stringify({ selected: this.selectedTokenIndex, target: targetIndex, dice: diceValue }));
             this.resetGameState();
             return false;
         }
@@ -451,7 +458,7 @@ class GameBoard {
         let errorMessage = { text: '' };
         if (this.isValidMove(this.selectedTokenIndex, targetIndex, diceValue, errorMessage)) {
             this.gameState = GameBoard.GAME_STATES.TARGET_SELECTED;
-            console.log("handleTargetSelect: trying move " + {from: this.selectedTokenIndex, to:targetIndex});
+            console.log("handleTargetSelect: trying move " + { from: this.selectedTokenIndex, to: targetIndex });
             this.movePiece(this.selectedTokenIndex, targetIndex);
             this.resetGameState();
             console.log("handleTargetSelect: Success ");
@@ -460,7 +467,7 @@ class GameBoard {
 
         this.showMessage(errorMessage.text);
         this.resetGameState();
-        console.log("handleTargetSelect: targeting failed " + {"targetIndex": targetIndex, "diceValue": diceValue, "currentPlayer":this.currentPlayer, "error":errorMessage.text});
+        console.log("handleTargetSelect: targeting failed " + { "targetIndex": targetIndex, "diceValue": diceValue, "currentPlayer": this.currentPlayer, "error": errorMessage.text });
         return false;
     }
 
@@ -565,10 +572,10 @@ class GameBoard {
      * sets pieces on board array, renders, checks for game end and ends the turn. Note: does not throw on invalid data.
     *
     */
-   movePiece(from, to, diceValue = this.getLastRoll()) {
-        console.log("movePiece: Trying to move Piece " + from + "->"+ to );
-        if(!diceValue) {
-            console.error("movePiece: Bad dice "+ JSON.stringify({dice:diceValue}));
+    movePiece(from, to, diceValue = this.getLastRoll()) {
+        console.log("movePiece: Trying to move Piece " + from + "->" + to);
+        if (!diceValue) {
+            console.error("movePiece: Bad dice " + JSON.stringify({ dice: diceValue }));
             return false;
         };
 
@@ -576,7 +583,7 @@ class GameBoard {
         const pieceAtTarget = this.board.getPieceAt(to);
         const targets = this.movementCalculator.calculateTarget(from, diceValue);
 
-        if(!piece || !targets) {
+        if (!piece || !targets) {
             console.error("Invalid movePiece call. Expected a valid move.")
             return false;
         };
@@ -606,7 +613,7 @@ class GameBoard {
         this.checkGameEnd();
 
         // End turn (only one move per turn even with repeat)
-        console.log("movePiece: Piece Moved successfully " + from + "->"+ to );
+        console.log("movePiece: Piece Moved successfully " + from + "->" + to);
         this.endTurn();
         return true;
     }
@@ -675,7 +682,7 @@ class GameBoard {
      * Makes AI move based on current game state
      */
     async makeAIMove() {
-        if (!window.IA || !this.gameActive || this.getLastRoll()===null) return;
+        if (!window.IA || !this.gameActive || this.getLastRoll() === null) return;
 
         try {
             const state = window.IA.fromGameBoard(this.board.content, this.cols, this.currentPlayer);
@@ -701,7 +708,7 @@ class GameBoard {
     passTurn() {
         if (!this.gameActive) return;
 
-        if (!this.diceRolled || this.getLastRoll()===null) {
+        if (!this.diceRolled || this.getLastRoll() === null) {
             this.showMessage('Roll dice first!');
             return;
         }
@@ -724,7 +731,7 @@ class GameBoard {
      */
     checkValidMoves() {
         const diceValue = this.getLastRoll();
-        if (diceValue===null) return false;
+        if (diceValue === null) return false;
 
         for (let i = 0; i < this.board.content.length; i++) {
             const piece = this.board.content[i];
@@ -734,7 +741,7 @@ class GameBoard {
             if (!piece.hasConverted() && diceValue !== 1) continue;
 
             const temp = this.movementCalculator.calculateTarget(i, diceValue);
-            const target = temp? temp[0] : null;
+            const target = temp ? temp[0] : null;
             if (!target) continue;
 
             // Check if destination doesn't have same player's piece
@@ -877,17 +884,20 @@ class GameBoard {
         let turnMsg;
         if (this.options.mode === 'pvc' && this.currentPlayer === Player.P2) {
             turnMsg = "AI's turn - Rolling...";
-        } else if (this.isOnlineGame() && window.onlineGameManager) {
+        } else if (this.isOnlineGame()) {
             // Online game message
-            if (window.onlineGameManager.isMyTurn) {
+            const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
+            if (onlineManager && onlineManager.isMyTurn) {
                 if (this.diceRolled) {
                     turnMsg = 'Your turn - Make your move!';
                 } else {
                     turnMsg = 'Your turn - Roll dice!';
                 }
-            } else {
-                const opponent = window.onlineGameManager.getOpponentName();
+            } else if (onlineManager) {
+                const opponent = onlineManager.getOpponentName();
                 turnMsg = `${opponent}'s turn`;
+            } else {
+                turnMsg = 'Connecting to server...';
             }
         } else if (this.diceRolled) {
             turnMsg = `Player ${this.currentPlayer === Player.P1 ? '1' : '2'} - Make your move!`;
@@ -1028,26 +1038,27 @@ function setupActionButtons() {
  */
 function setupOnlineEventListeners() {
     // Override board click event for online games
-    document.addEventListener(Board.CLICK, function(e) {
+    document.addEventListener(Board.CLICK, function (e) {
         if (window.game && window.game.isOnlineGame()) {
             e.stopPropagation();
             console.log("Online board click: " + JSON.stringify(e.detail));
-            
+
             let num = window.game.handleOnlineClick(e.detail.index);
             console.log("Online handleClick returned " + num);
         }
     });
-    
+
     // Listen for auth events to handle pending online setups
-    document.addEventListener('auth:login', function(e) {
+    document.addEventListener('auth:login', function (e) {
         if (window.pendingOnlineSetup && e.detail) {
             console.log('Login successful for server:', e.detail.server);
-            
+
             // If we have a pending setup for this server, start the game
             if (e.detail.server === window.pendingOnlineSetup.serverKey) {
                 setTimeout(() => {
-                    if (window.onlineGameManager) {
-                        window.onlineGameManager.startOnlineGame(
+                    const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
+                    if (onlineManager) {
+                        onlineManager.startOnlineGame(
                             window.pendingOnlineSetup.columns,
                             window.pendingOnlineSetup.firstPlayer
                         ).then(success => {
@@ -1062,7 +1073,7 @@ function setupOnlineEventListeners() {
             }
         }
     });
-    
+
     // Listen for game updates
     setInterval(() => {
         if (window.game && window.game.isOnlineGame()) {
@@ -1075,12 +1086,12 @@ function setupOnlineEventListeners() {
 document.addEventListener('DOMContentLoaded', function () {
     setupActionButtons();
     setupOnlineEventListeners();
-    
+
     // Set up global event listeners
     document.addEventListener(Board.CLICK, e => {
         e.stopPropagation();
         console.log("Board click: " + JSON.stringify(e.detail));
-        
+
         // Use appropriate handler based on game mode
         if (window.game) {
             if (window.game.isOnlineGame()) {

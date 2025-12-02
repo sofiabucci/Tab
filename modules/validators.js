@@ -51,8 +51,8 @@ module.exports = {
             return { valid: false, error: 'Size deve ser número' };
         }
         
-        if (size % 2 === 0) {
-            return { valid: false, error: `Invalid size '${size}'` };
+        if (size % 2 === 0 || size < 7 || size > 15) {
+            return { valid: false, error: `Invalid size '${size}' - must be odd number between 7 and 15` };
         }
         
         return { valid: true };

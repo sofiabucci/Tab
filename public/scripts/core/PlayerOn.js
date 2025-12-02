@@ -813,7 +813,27 @@ class OnlineGameManager {
     }
 }
 
-// Initialize online game manager when needed
-if (!window.onlineGameManager) {
-    window.OnlineGameManager = OnlineGameManager;
-}
+// Initialize online game manager
+window.OnlineGameManager = OnlineGameManager;
+
+// Create global instance but don't initialize immediately
+window.initOnlineGameManager = function () {
+    if (!window.onlineGameManager) {
+        window.onlineGameManager = new OnlineGameManager();
+        console.log('OnlineGameManager initialized');
+    }
+    return window.onlineGameManager;
+};
+
+// Auto-initialize if certain conditions are met
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.AuthManager) {
+        // Check if we have credentials for any server
+        const hasOfficialCreds = window.AuthManager.getCredentials('official');
+        const hasGroupCreds = window.AuthManager.getCredentials('group');
+
+        if (hasOfficialCreds || hasGroupCreds || window.pendingOnlineSetup) {
+            window.initOnlineGameManager();
+        }
+    }
+});
