@@ -18,7 +18,8 @@
       port: 8104
     }
   };
-  
+  const group = 4;
+
   // Estado atual
   let currentServer = 'group'; // Default: Group Server
   let BASE = SERVERS[currentServer].url;
@@ -101,8 +102,8 @@
   }
 
   async function join(nick, password, size, game = null){
-    const params = { nick, password, size };
-    if (game) params.game = game;
+    const params = {group, nick, password, size };
+    // if (game) params.game = game;
     return await request('join', params);
   }
 
@@ -110,12 +111,12 @@
     return await request('leave', { nick, password, game });
   }
 
-  async function roll(nick, password, game, cell = 0){
-    return await request('roll', { nick, password, game, cell });
+  async function roll(nick, password, game, cell = 0){ // does not use cell
+    return await request('roll', { nick, password, game });
   }
 
-  async function passTurn(nick, password, game, cell = 0){
-    return await request('pass', { nick, password, game, cell });
+  async function passTurn(nick, password, game, cell = 0){ // does not use cell
+    return await request('pass', { nick, password, game });
   }
 
   async function notify(nick, password, game, cell){
@@ -123,7 +124,7 @@
   }
 
   async function getRanking(size = 20){
-    return await request('ranking', { size });
+    return await request('ranking', {group, size });
   }
 
   /**
