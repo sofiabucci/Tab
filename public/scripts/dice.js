@@ -49,6 +49,97 @@ document.addEventListener('DOMContentLoaded', function() {
     window.canRollAgain = false;
 
     /**
+     * Class to handle Canvas-based Stick rendering.
+     * Draws stickdice.
+     */
+    class StickCanvas {
+        /**
+         * @param {HTMLElement} container - The div to append the canvas to.
+         * @param {number} width - Canvas width
+         * @param {number} height - Canvas height
+         * @param {string[]} arr - faces of dice result
+         */
+        constructor(container, width , height , faces) {
+            this.container = document.getElementById(container);
+            if (!this.container) {
+                console.error(`Container ${container} not found`);
+                return;
+            }
+
+            // Create Canvas Element
+            this.canvas = document.createElement('canvas');
+            this.canvas.width = width;
+            this.canvas.height = height;
+
+            this.faces = faces;
+            this.gc = this.canvas.getContext('2d');
+
+            // Append to DOM
+            this.container.appendChild(this.canvas);
+            
+            // Configuration
+            this.stickColor = '#8b4513'; // Dark wood
+            this.stickLight = '#f0f0f0'; // Dark wood
+            this.padding = 15; // Space between sticks
+            
+            // Initial Render
+            this.draw();
+            
+        }
+
+        drawStick(x, y, w, h, radius, color) {
+            const gc = this.gc;
+            
+            gc.beginPath();
+            gc.moveTo(x + radius, y);
+            gc.lineTo(x + w - radius, y);
+            gc.quadraticCurveTo(x + w, y, x + w, y + radius);
+            gc.lineTo(x + w, y + h - radius);
+            gc.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+            gc.lineTo(x + radius, y + h);
+            gc.quadraticCurveTo(x, y + h, x, y + h - radius);
+            gc.lineTo(x, y + radius);
+            gc.quadraticCurveTo(x, y, x + radius, y);
+            gc.closePath();
+
+            gc.fillStyle = color;
+            gc.fill();
+            
+            gc.strokeStyle = '#654321'; // Darker wood border
+            gc.lineWidth = 2;
+            gc.stroke();
+        }
+
+        /**
+         * Main render function
+         * Clears the canvas and draws 4 sticks
+         */
+        draw() {
+            this.gc.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+            const stickCount = 4;
+
+            // Stick width is based on canvas size and padding
+            const stickWidth = (this.canvas.width - (this.padding * (stickCount + 1))) / stickCount;
+            const stickHeight = this.canvas.height * 0.8; // 80% of canvas height
+            const startY = (this.canvas.height - stickHeight) / 2; // Center vertically
+
+            for (let i = 0; i < stickCount; i++) {
+                const x = this.padding + (i * (stickWidth + this.padding));
+                
+                this.drawStick(
+                    x, 
+                    startY, 
+                    stickWidth, 
+                    stickHeight, 
+                    10, // Corner radius
+                    (this.faces[i] === 'light') ? this.stickLight : this.stickColor
+                );
+            }
+        }
+    }
+
+    /**
      * Initialize dice display
      */
     function renderInitial() {
@@ -56,27 +147,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Create visual representation of stick dice
+     * Create dic container for stick Canvas
      * @param {string[]} faces - Array of face values ('light' or 'dark')
      * @returns {HTMLElement} - Stick container element
      */
     function createStickVisual(faces) {
         const stickContainer = document.createElement('div');
         stickContainer.className = 'sticks-container';
-
-        faces.forEach((face, index) => {
-            const stick = document.createElement('div');
-            stick.className = 'stick';
-
-            // Create 4 vertical segments for each stick
-            for (let i = 0; i < 4; i++) {
-                const segment = document.createElement('div');
-                segment.className = `stick-segment ${face === 'light' ? 'stick-light' : 'stick-dark'}`;
-                stick.appendChild(segment);
-            }
-
-            stickContainer.appendChild(stick);
-        });
+        stickContainer.id = 'sticks-container';
 
         return stickContainer;
     }
@@ -161,6 +239,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             const rollResult = calculateRollResult();
             displayRollResult(rollResult);
+            new StickCanvas('sticks-container', 150, 75, rollResult.faces);
             broadcastRollEvent(rollResult);
             isRolling = false;
             
