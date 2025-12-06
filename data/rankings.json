@@ -3,10 +3,32 @@
     "sofiab": {
       "victories": 1,
       "games": 1
+    },
+    "Alice": {
+      "victories": 1,
+      "games": 6
+    },
+    "Bot1": {
+      "victories": 66,
+      "games": 99
+    },
+    "Bot2": {
+      "victories": 33,
+      "games": 99
+    },
+    "Bot3": {
+      "victories": 0,
+      "games": 99
     }
   },
   "1_7": {
     "sofiab": {
+      "victories": 1,
+      "games": 1
+    }
+  },
+  "4_7": {
+    "Bob": {
       "victories": 1,
       "games": 1
     }

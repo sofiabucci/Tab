@@ -11,7 +11,7 @@ class Classification {
 
         // ---- ONLINE SERVERS ----
         this.server8008 = "http://twserver.alunos.dcc.fc.up.pt:8008";
-        this.server8104 = "http://twserver.alunos.dcc.fc.up.pt:8104";
+        this.server8104 = "http://localhost:8104";
         
         this.onlineStats8008 = [];
         this.onlineStats8104 = [];
@@ -314,13 +314,13 @@ class Classification {
                 if (serverUrl.includes('8008')) {
                     const currentServer = window.ClientAPI._internal.currentServer;
                     window.ClientAPI.setServer('official');
-                    const result = await window.ClientAPI.getRanking(20);
+                    const result = await window.ClientAPI.getRanking(9);
                     window.ClientAPI.setServer(currentServer);
                     return result;
                 } else if (serverUrl.includes('8104')) {
                     const currentServer = window.ClientAPI._internal.currentServer;
                     window.ClientAPI.setServer('group');
-                    const result = await window.ClientAPI.getRanking(20);
+                    const result = await window.ClientAPI.getRanking(9);
                     window.ClientAPI.setServer(currentServer);
                     return result;
                 }
@@ -332,7 +332,7 @@ class Classification {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ size: 20 })
+                body: JSON.stringify({group:4,  size: 9 })
             });
 
             if (!response.ok) {

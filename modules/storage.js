@@ -20,12 +20,12 @@ class Storage {
             await this.loadData('games.json');
             await this.loadData('rankings.json');
             
-            console.log('✅ Armazenamento inicializado com sucesso');
-            console.log(`📊 ${Object.keys(this.users).length} utilizadores carregados`);
-            console.log(`🎮 ${Object.keys(this.games).length} jogos carregados`);
-            console.log(`🏆 ${Object.keys(this.rankings).length} rankings carregados`);
+            console.log('[Storage] Armazenamento inicializado com sucesso');
+            console.log(`[Storage] ${Object.keys(this.users).length} utilizadores carregados`);
+            console.log(`[Storage] ${Object.keys(this.games).length} jogos carregados`);
+            console.log(`[Storage] ${Object.keys(this.rankings).length} rankings carregados`);
         } catch (error) {
-            console.error('❌ Erro ao inicializar armazenamento:', error.message);
+            console.error('[Storage] ❌ Erro ao inicializar armazenamento:', error.message);
             // Criar estruturas vazias se houver erro
             this.users = {};
             this.games = {};
@@ -51,28 +51,28 @@ class Storage {
             switch (filename) {
                 case 'users.json':
                     this.users = parsed;
-                    console.log(`📄 ${filename} carregado: ${Object.keys(parsed).length} utilizadores`);
+                    console.log(`[Storage] ${filename} carregado: ${Object.keys(parsed).length} utilizadores`);
                     break;
                 case 'games.json':
                     this.games = parsed;
-                    console.log(`📄 ${filename} carregado: ${Object.keys(parsed).length} jogos`);
+                    console.log(`[Storage] ${filename} carregado: ${Object.keys(parsed).length} jogos`);
                     break;
                 case 'rankings.json':
                     this.rankings = parsed;
-                    console.log(`📄 ${filename} carregado: ${Object.keys(parsed).length} rankings`);
+                    console.log(`[Storage] ${filename} carregado: ${Object.keys(parsed).length} rankings`);
                     break;
             }
         } catch (error) {
             if (error.code === 'ENOENT') {
                 // Se o ficheiro não existe, cria um vazio
-                console.log(`📄 ${filename} não existe, criando...`);
+                console.log(`[Storage] ${filename} não existe, criando...`);
                 await this.saveData(filename, {});
             } else if (error instanceof SyntaxError) {
                 // Se JSON está corrompido, cria novo
-                console.log(`⚠️  ${filename} corrompido, recriando...`);
+                console.log(`[Storage]⚠️  ${filename} corrompido, recriando...`);
                 await this.saveData(filename, {});
             } else {
-                console.error(`❌ Erro ao carregar ${filename}:`, error.message);
+                console.error(`[Storage] ❌ Erro ao carregar ${filename}:`, error.message);
             }
         }
     }
@@ -84,7 +84,7 @@ class Storage {
             await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
             return true;
         } catch (error) {
-            console.error(`❌ Erro ao salvar ${filename}:`, error.message);
+            console.error(`[Storage] ❌ Erro ao salvar ${filename}:`, error.message);
             return false;
         }
     }
@@ -96,9 +96,9 @@ class Storage {
                 this.saveData('games.json', this.games),
                 this.saveData('rankings.json', this.rankings)
             ]);
-            console.log('💾 Dados persistidos com sucesso');
+            console.log('[Storage] 💾 Dados persistidos com sucesso');
         } catch (error) {
-            console.error('❌ Erro ao persistir dados:', error.message);
+            console.error('[Storage] ❌ Erro ao persistir dados:', error.message);
         }
     }
 

@@ -123,7 +123,7 @@
     return await request('notify', { nick, password, game, cell });
   }
 
-  async function getRanking(size = 20){
+  async function getRanking(size = 9){
     return await request('ranking', {group, size });
   }
 

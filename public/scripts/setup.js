@@ -1,3 +1,5 @@
+import {OnlineGameManager} from './core/PlayerOn.js';
+
 /**
  * @file setup.js
  * @description Game setup and configuration management
@@ -212,9 +214,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const success = await window.onlineGameManager.startOnlineGame(columns, firstPlayer);
             if (success) {
                 // Show connection status
-                showServerStatus(serverName, true);
+                showServerStatus(window.ClientAPI.getServerInfo().name, true);
             } else {
-                showServerStatus(serverName, false);
+                showServerStatus(window.ClientAPI.getServerInfo().name, false);
             }
         } catch (error) {
             console.error('Failed to start online game:', error);
@@ -293,8 +295,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const labels = {
             'pvc': 'AI (Maroon)',
-            'pvpOS': 'Online Player (Official Server)',
-            'pvpGS': 'Online Player (Group Server)',
+            'pvpOS': 'Player 2 (Maroon)', //Online Player (Official Server)',
+            'pvpGS': 'Player 2 (Maroon)', //Online Player (Group Server)',
             'pvpLocal': 'Player 2 (Maroon)'
         };
 

@@ -14,7 +14,7 @@ const validators = require('./modules/validators');
 const PORT = 8104;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-console.log(`👥 Grupo 4 - Servidor Tab na porta ${PORT}`);
+console.log(`(ツ) Grupo 4 - Servidor Tab na porta ${PORT}`);
 
 // Inicializar armazenamento
 storage.init().catch(console.error);
@@ -72,6 +72,9 @@ async function handlePostRequest(req, res, pathname, body) {
             break;
         case '/notify':
             await handleNotify(res, data);
+            break;
+        case '/ranking':
+            await handleRanking(res, data);
             break;
         default:
             sendResponse(res, 404, { error: 'Endpoint não encontrado' });
@@ -140,9 +143,9 @@ function handleUpdate(req, res, query) {
 }
 
 // Handler GET /ranking
-async function handleRanking(req, res, query) {
+async function handleGetRanking(req, res, query) {
     const { group, size } = query;
-    
+
     // Validar parâmetros conforme especificação
     if (group === undefined) {
         return sendResponse(res, 400, { error: 'Undefined group' });
@@ -305,6 +308,36 @@ async function handleNotify(res, data) {
     }
 }
 
+async function handleRanking(res, data) {
+    const { group, size } = data;
+    
+    // Validar parâmetros conforme especificação
+    if (group === undefined) {
+        return sendResponse(res, 400, { error: 'Undefined group' });
+    }
+    
+    const groupNum = parseInt(group);
+    if (isNaN(groupNum)) {
+        return sendResponse(res, 400, { error: `Invalid group '${group}'` });
+    }
+    
+    if (size === undefined) {
+        return sendResponse(res, 400, { error: "Invalid size 'undefined'" });
+    }
+    
+    const sizeNum = parseInt(size);
+    if (isNaN(sizeNum) || sizeNum % 2 === 0 || sizeNum < 7 || sizeNum > 15) {
+        return sendResponse(res, 400, { error: `Invalid size '${size}' - must be odd number between 7 and 15` });
+    }
+
+    try {
+        const ranking = await game.getRanking(groupNum, sizeNum);
+        sendResponse(res, 200, { ranking });
+    } catch (error) {
+        sendResponse(res, 400, { error: error.message });
+    }
+}
+
 // Servidor HTTP
 const server = http.createServer(async (req, res) => {
     // CORS
@@ -331,7 +364,7 @@ const server = http.createServer(async (req, res) => {
         } else if (method === 'GET' && pathname === '/update') {
             handleUpdate(req, res, parsedUrl.query);
         } else if (method === 'GET' && pathname === '/ranking') {
-            handleRanking(req, res, parsedUrl.query);
+            handleGetRanking(req, res, parsedUrl.query);
         } else {
             // Ficheiros estáticos
             let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
@@ -345,8 +378,8 @@ const server = http.createServer(async (req, res) => {
 
 // Iniciar servidor
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Servidor Tab do Grupo 4 iniciado: http://localhost:${PORT}`);
-    console.log(`📊 Ranking: http://localhost:${PORT}/ranking?group=4&size=5`);
+    console.log(`[Index] Servidor Tab do Grupo 4 iniciado: http://localhost:${PORT}`);
+    console.log(`[Index] Ranking: http://localhost:${PORT}/ranking?group=4&size=9`);
 });
 
 // Shutdown graceful
@@ -354,7 +387,7 @@ process.on('SIGINT', async () => {
     console.log('\n🔄 Encerrando servidor...');
     server.close(async () => {
         await storage.persistAll();
-        console.log('✅ Servidor encerrado');
+        console.log('[Index] Servidor encerrado');
         process.exit(0);
     });
 });
