@@ -19,6 +19,12 @@ console.log(`(ツ) Grupo 4 - Servidor Tab na porta ${PORT}`);
 // Inicializar armazenamento
 storage.init().catch(console.error);
 
+/**
+ * Maps game IDs to a list of active SSE response connections.
+ * @type {Object.<string, import('http').ServerResponse[]>}
+ */
+let activeConnections = {};
+
 // Helper para respostas
 function sendResponse(res, statusCode, data) {
     res.writeHead(statusCode, {
@@ -81,6 +87,35 @@ async function handlePostRequest(req, res, pathname, body) {
     }
 }
 
+function responseBuilder(gameData){
+    const response = {};
+    // Adicionar propriedades apenas se existirem
+        if (gameData.pieces) response.pieces = gameData.pieces;
+        if (gameData.initial) response.initial = gameData.initial;
+        if (gameData.step) response.step = gameData.step;
+        if (gameData.turn) response.turn = gameData.turn;
+        if (gameData.players && Object.keys(gameData.players).length > 0) response.players = gameData.players;
+        if (gameData.dice) response.dice = gameData.dice;
+        if (gameData.selected && gameData.selected.length > 0) response.selected = gameData.selected;
+        if (gameData.winner !== undefined) response.winner = gameData.winner;
+        if (gameData.mustPass !== undefined) response.mustPass = gameData.mustPass;
+    return response;
+}
+
+function notifyGameUpdate(gameId, gameData) {
+    if (!activeConnections[gameId]) return;
+    if (!gameData) return;
+
+    const response = responseBuilder(gameData);
+
+    const message = `data: ${JSON.stringify(response)}\n\n`;
+
+    // Multicast to players in this game
+    activeConnections[gameId].forEach(clientRes => {
+        clientRes.write(message);
+    });
+}
+
 // Handler GET /update (SSE)
 function handleUpdate(req, res, query) {
     const { game: gameId, nick } = query;
@@ -94,6 +129,12 @@ function handleUpdate(req, res, query) {
         return sendResponse(res, 404, { error: 'Invalid game reference' });
     }
 
+    //Register Connection
+    if(!activeConnections[gameID]){
+        activeConnections[gameId] = [];
+    }
+    activeConnections[gameId].push(res);
+
     // Configurar SSE
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -103,19 +144,8 @@ function handleUpdate(req, res, query) {
     });
 
     // Construir resposta conforme especificação
-    const response = {};
+    const response = responseBuilder(gameData);
     
-    // Adicionar propriedades apenas se existirem
-    if (gameData.pieces) response.pieces = gameData.pieces;
-    if (gameData.initial) response.initial = gameData.initial;
-    if (gameData.step) response.step = gameData.step;
-    if (gameData.turn) response.turn = gameData.turn;
-    if (gameData.players && Object.keys(gameData.players).length > 0) response.players = gameData.players;
-    if (gameData.dice) response.dice = gameData.dice;
-    if (gameData.selected && gameData.selected.length > 0) response.selected = gameData.selected;
-    if (gameData.winner !== undefined) response.winner = gameData.winner;
-    if (gameData.mustPass !== undefined) response.mustPass = gameData.mustPass;
-
     // Enviar estado inicial
     res.write(`data: ${JSON.stringify(response)}\n\n`);
 
@@ -138,6 +168,15 @@ function handleUpdate(req, res, query) {
     }
 
     req.on('close', () => {
+        if (activeConnections[gameId]) {
+            // Remove this specific connection from the list
+            activeConnections[gameId] = activeConnections[gameId].filter(conn => conn !== res);
+            
+            // cleanup empty game keys if you want
+            if (activeConnections[gameId].length === 0) {
+                delete activeConnections[gameId];
+            }
+        }
         if (interval) clearInterval(interval);
     });
 }
@@ -235,6 +274,9 @@ async function handleJoin(res, data) {
     try {
         const result = await game.join(data.group, data.nick, data.password, data.size);
         sendResponse(res, 200, result);
+        if(result){
+            notifyGameUpdate(result.game);
+        }
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
@@ -271,6 +313,7 @@ async function handleRoll(res, data) {
     try {
         await game.roll(data.nick, data.password, data.game);
         sendResponse(res, 200, {});
+        notifyGameUpdate(data.game);
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }

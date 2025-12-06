@@ -367,7 +367,6 @@ class GameBoard {
                 if (validToken) {
 
                     const targets = this.movementCalculator.calculateTarget(this.selectedTokenIndex, diceValue);
-                    console.log("handleClick: Trying Automove " + JSON.stringify({ selected: this.selectedTokenIndex, dice: diceValue, out: targets }));
 
                     if (targets.length === 1) { //only 1 path. index 0 is always valid.
                         this.handleTargetSelect(targets[0], diceValue);
@@ -414,7 +413,6 @@ class GameBoard {
      * @returns {boolean} - True on successful selection, false otherwise.
      */
     handleTokenSelect(i, diceValue) {
-        console.log('handleTokenSelect: ... ' + JSON.stringify({ index: i, dice: diceValue }));
         const piece = this.board.getPieceAt(i);
 
         if (!piece || piece.player !== this.currentPlayer) {
@@ -426,14 +424,13 @@ class GameBoard {
         // Check first move rule (only with Tâb)
         if (piece.state === Piece.UNMOVED && diceValue !== 1) {
             this.showMessage('First move must be with Tâb (1)');
-            console.log('handleTokenSelect: First move must be with Tâb (1)');
             return false;
         }
 
         // Valid token selected
         this.gameState = GameBoard.GAME_STATES.TOKEN_SELECTED;
         this.selectedTokenIndex = i;
-        console.log('handleTokenSelect: ok, ' + JSON.stringify({ index: i, dice: diceValue }));
+        console.log('handleTokenSelect: ok ');
         return true;
     }
 
@@ -445,7 +442,6 @@ class GameBoard {
      * @returns {boolean} - True if move performed, false otherwise.
      */
     handleTargetSelect(targetIndex, diceValue) {
-        console.log('handleTargetSelect: Start ' + JSON.stringify({ target: targetIndex, dice: diceValue }));
 
         if (this.selectedTokenIndex === null || this.selectedTokenIndex === targetIndex) {
             // Deselect
@@ -458,10 +454,9 @@ class GameBoard {
         let errorMessage = { text: '' };
         if (this.isValidMove(this.selectedTokenIndex, targetIndex, diceValue, errorMessage)) {
             this.gameState = GameBoard.GAME_STATES.TARGET_SELECTED;
-            console.log("handleTargetSelect: trying move " + { from: this.selectedTokenIndex, to: targetIndex });
             this.movePiece(this.selectedTokenIndex, targetIndex);
             this.resetGameState();
-            console.log("handleTargetSelect: Success ");
+            console.log("handleTargetSelect: ok ");
             return true;
         }
 
@@ -869,10 +864,6 @@ class GameBoard {
                 cell.appendChild(token);
             }
         });
-
-        if(this.options.mode === 'pvpGS'){
-            document.getElementById('board').style.transform = 'rotate(180deg)';
-        }
 
         // Update turn message based on game mode
         let turnMsg;

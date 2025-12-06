@@ -1,4 +1,5 @@
 import {Piece} from './Piece.js';
+import {StickCanvas} from '../dice.js';
 
 /**
  * @file PlayerOn.js
@@ -259,13 +260,16 @@ export class OnlineGameManager {
      */
     updateServerState(update) {
         // Update each property if present in update
-        if (update.dice !== undefined) this.serverState.dice = update.dice;
-        if (update.step !== undefined) this.serverState.step = update.step;
-        if (update.selected !== undefined) this.serverState.selected = update.selected;
-        if (update.mustPass !== undefined) this.serverState.mustPass = update.mustPass;
-        if (update.turn !== undefined) this.serverState.turn = update.turn;
-        if (update.initial !== undefined) this.serverState.initial = update.initial;
-        if (update.pieces !== undefined) this.serverState.pieces = update.pieces;
+        if (update.cell !== undefined)      this.serverState.cell = update.cell;
+        if (update.dice !== undefined)      this.serverState.dice = update.dice;
+        if (update.initial !== undefined)   this.serverState.initial = update.initial;
+        if (update.mustPass !== undefined)  this.serverState.mustPass = update.mustPass;
+        if (update.pieces !== undefined)    this.serverState.pieces = update.pieces;
+        if (update.players !== undefined)   this.serverState.players = update.players;
+        if (update.selected !== undefined)  this.serverState.selected = update.selected;
+        if (update.step !== undefined)      this.serverState.step = update.step;
+        if (update.turn !== undefined)      this.serverState.turn = update.turn;
+        if (update.winner !== undefined)    this.serverState.winner = update.winner;
         
         // Update isMyTurn
         this.isMyTurn = (update.turn === this.playerNick);
@@ -286,14 +290,17 @@ export class OnlineGameManager {
             
             // Update dice display
             const diceResult = document.getElementById('diceResult');
+            const names = { 1: 'Tâb', 2: 'Itneyn', 3: 'Teláteh', 4: 'Arba\'ah', 6: 'Sitteh' };
+            
             if (diceResult) {
-                const names = { 1: 'Tâb', 2: 'Itneyn', 3: 'Teláteh', 4: 'Arba\'ah', 6: 'Sitteh' };
-                diceResult.innerHTML = `
+                diceResult.innerHTML = '';
+                diceResult.appendChild(new StickCanvas(150, 75, dice.stickValues).canvas);
+                diceResult.innerHTML = diceResult.innerHTML + `
                     <div class="dice-result-info">
-                        <div class="dice-value">Dado: ${dice.value} (${names[dice.value]})</div>
-                        ${dice.keepPlaying ? '<div class="dice-repeats">Pode lançar novamente!</div>' : ''}
+                    <div class="dice-value">Dado: ${dice.value} (${names[dice.value]})</div>
+                    ${dice.keepPlaying ? '<div class="dice-repeats">Pode lançar novamente!</div>' : ''}
                     </div>
-                `;
+                    `;
             }
             
             // Show message
@@ -312,9 +319,13 @@ export class OnlineGameManager {
         
         // Convert server pieces format to board format
         this.updateBoardFromServerPieces(pieces);
-        
         // Re-render board
         this.gameBoard.render();
+
+        //Flip board for player 2
+        if(this.serverState.players && this.serverState.players[this.playerNick] === 'Blue'){
+            document.getElementById('board').style.transform = 'rotate(180deg)';
+        };
     }
     
     /**
@@ -760,13 +771,8 @@ export class OnlineGameManager {
     getOpponentName() {
         if (!this.serverState.players || !this.playerNick) return 'Opponent';
         
-        for (const [nick, color] of Object.entries(this.serverState.players)) {
-            if (nick !== this.playerNick) {
-                return nick;
-            }
-        }
-        
-        return 'Opponent';
+        // Find Opponents's name in the list of players
+        return Object.keys(this.serverState.players).find(nick => nick !== this.playerNick) || 'Opponent';
     }
 
     /**
