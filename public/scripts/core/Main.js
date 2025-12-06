@@ -788,8 +788,7 @@ class GameBoard {
             if (window.classification && this.gameStartTime) {
                 const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
 
-                // Use consistent names
-                const winnerName = winner; // This should be "Player 1", "Player 2", or "AI"
+                const winnerName = winner; 
                 const player2Name = this.options.mode === 'pvc' ? 'AI' : 'Player 2';
 
                 // Count remaining pieces for winner
@@ -801,17 +800,8 @@ class GameBoard {
                     mode: this.options.mode
                 });
 
-                window.classification.recordGame(
-                    'Player 1',     // Always Player 1
-                    player2Name,    // AI or Player 2
-                    winnerName,     // The actual winner
-                    gameDuration,
-                    winnerPieces,
-                    this.cols,
-                    this.options.mode,
-                    isResign,
-                    resigningPlayer
-                );
+                //FIXME - OnlineGameManager from PlayerOn.js calls classification.recordResult
+                //window.classification.recordResult(playerNick, isWin);
             }
 
             // Configure buttons
@@ -879,6 +869,10 @@ class GameBoard {
                 cell.appendChild(token);
             }
         });
+
+        if(this.options.mode === 'pvpGS'){
+            document.getElementById('board').style.transform = 'rotate(180deg)';
+        }
 
         // Update turn message based on game mode
         let turnMsg;

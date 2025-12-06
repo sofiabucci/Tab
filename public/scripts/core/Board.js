@@ -82,6 +82,7 @@ export class Board {
 
         const board = document.createElement('div');
         board.classList = "board";
+        board.id = "board";
         board.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
 
         this.setupPieces();

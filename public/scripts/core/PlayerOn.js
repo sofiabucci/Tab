@@ -1,3 +1,5 @@
+import {Piece} from './Piece.js';
+
 /**
  * @file PlayerOn.js
  * @description Online multiplayer system for Tâb game
@@ -5,7 +7,7 @@
  * Updated to use ClientAPI for server communication and handle game flow properly
  */
 
-class OnlineGameManager {
+export class OnlineGameManager {
     constructor() {
         this.clientAPI = window.ClientAPI;
         this.currentGame = null;
@@ -418,17 +420,7 @@ class OnlineGameManager {
             const opponent = this.getOpponentName();
             const gameDuration = this.gameBoard ? Math.floor((Date.now() - this.gameBoard.gameStartTime) / 1000) : 0;
             
-            window.classification.recordGame(
-                this.playerNick,
-                opponent,
-                winner,
-                gameDuration,
-                isWin ? this.gameBoard?.cols || 9 : 0,
-                this.gameBoard?.cols || 9,
-                this.currentServer === 'official' ? 'pvpOS' : 'pvpGS',
-                false,
-                null
-            );
+            window.classification.recordResult(this.playerNick, isWin);
         }
         
         // Clean up

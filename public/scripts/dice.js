@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Create dic container for stick Canvas
+     * Create div container for stick Canvas
      * @param {string[]} faces - Array of face values ('light' or 'dark')
      * @returns {HTMLElement} - Stick container element
      */
