@@ -257,48 +257,49 @@ class GameBoard {
 
     /**
      * Update online game UI
+     * [Note] - OnlineGameManager handles this
      */
     updateOnlineUI() {
-        if (!this.isOnlineGame()) return;
+        // if (!this.isOnlineGame()) return;
 
-        const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
-        if (!onlineManager) return;
+        // const onlineManager = window.getOnlineGameManager ? window.getOnlineGameManager() : null;
+        // if (!onlineManager) return;
 
-        // Update dice button
-        const rollBtn = document.getElementById('rollDiceBtn');
-        if (rollBtn) {
-            if (onlineManager.isMyTurn && !this.diceRolled) {
-                rollBtn.disabled = false;
-                rollBtn.style.opacity = '1';
-            } else {
-                rollBtn.disabled = true;
-                rollBtn.style.opacity = '0.5';
-            }
-        }
+        // // Update dice button
+        // const rollBtn = document.getElementById('rollDiceBtn');
+        // if (rollBtn) {
+        //     if (onlineManager.isMyTurn && !this.diceRolled) {
+        //         rollBtn.disabled = false;
+        //         rollBtn.style.opacity = '1';
+        //     } else {
+        //         rollBtn.disabled = true;
+        //         rollBtn.style.opacity = '0.5';
+        //     }
+        // }
 
-        // Update pass button
-        const passBtn = document.getElementById('passBtn');
-        if (passBtn) {
-            if (onlineManager.isMyTurn && this.diceRolled) {
-                passBtn.disabled = false;
-                passBtn.style.opacity = '1';
-            } else {
-                passBtn.disabled = true;
-                passBtn.style.opacity = '0.5';
-            }
-        }
+        // // Update pass button
+        // const passBtn = document.getElementById('passBtn');
+        // if (passBtn) {
+        //     if (onlineManager.isMyTurn && this.diceRolled) {
+        //         passBtn.disabled = false;
+        //         passBtn.style.opacity = '1';
+        //     } else {
+        //         passBtn.disabled = true;
+        //         passBtn.style.opacity = '0.5';
+        //     }
+        // }
 
-        // Update message
-        if (onlineManager.isMyTurn) {
-            if (this.diceRolled) {
-                this.showMessage('Your turn - Make your move!');
-            } else {
-                this.showMessage('Your turn - Roll the dice!');
-            }
-        } else {
-            const opponent = onlineManager.getOpponentName();
-            this.showMessage(`${opponent}'s turn`);
-        }
+        // // Update message
+        // if (onlineManager.isMyTurn) {
+        //     if (this.diceRolled) {
+        //         this.showMessage('Your turn - Make your move!');
+        //     } else {
+        //         this.showMessage('Your turn - Roll the dice!');
+        //     }
+        // } else {
+        //     const opponent = onlineManager.getOpponentName();
+        //     this.showMessage(`${opponent}'s turn`);
+        // }
     }
 
     /**
@@ -386,7 +387,7 @@ class GameBoard {
                 break;
             // Choose target once token is selected
             case GameBoard.GAME_STATES.TOKEN_SELECTED:
-                console.log("handleClick: Invalid target " + JSON.stringify({ i: i, diceValue: diceValue }));
+                console.log("handleClick: Trying " + JSON.stringify({ i: i, diceValue: diceValue }));
                 this.handleTargetSelect(i, diceValue);
                 break;
             default:
@@ -789,7 +790,7 @@ class GameBoard {
                 // Count remaining pieces for winner
                 const winnerPieces = this.board.content.filter(p => p && p.player === (winner === 'Player 1' ? Player.P1 : Player.P2)).length;
 
-                console.log('Calling classification.recordGame with:', {
+                console.log('Calling classification.recordGame with:(function is missing)', {
                     winner: winnerName,
                     player2: player2Name,
                     mode: this.options.mode
@@ -976,20 +977,6 @@ function generateBoard(columns = 9, options = {}) {
     console.log("generateBoard: Initializing GameBoard with options:", options);
     window.game = new GameBoard(Board.DEFAULT_CONTAINER, columns, options);
     setupActionButtons();
-
-    // Event listeners for dice events
-    document.addEventListener('stickRoll', (e) => {
-        if (window.game) {
-            window.game.handleStickRoll(e.detail);
-        }
-    });
-
-    // Event listeners for turn events
-    document.addEventListener('turnChanged', () => {
-        if (window.game && window.updateRollButtonState) {
-            window.updateRollButtonState();
-        }
-    });
 
     return window.game;
 }

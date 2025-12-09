@@ -514,6 +514,10 @@ class TabGame {
             // Verificar se mantém turno
             if (!game.dice.keepPlaying) {
                 this.nextTurn(game);
+            }else{
+                game.dice = null;
+                game.step = 'from'; // Reset step for new roll/move cycle
+                game.selected = [];
             }
             
             return { success: true };
@@ -565,6 +569,10 @@ class TabGame {
         
         if (!game.dice.keepPlaying) {
             this.nextTurn(game);
+        }else{
+            game.dice = null;
+            game.step = 'from'; // Reset step for new roll/move cycle
+            game.selected = [];
         }
         
         return { success: true };
@@ -604,6 +612,10 @@ class TabGame {
         
         if (!game.dice.keepPlaying) {
             this.nextTurn(game);
+        }else{
+            game.dice = null;
+            game.step = 'from'; // Reset step for new roll/move cycle
+            game.selected = [];
         }
         
         return { success: true };

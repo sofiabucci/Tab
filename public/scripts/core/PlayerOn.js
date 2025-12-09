@@ -34,6 +34,29 @@ export class OnlineGameManager {
         this.initialize();
     }
 
+    // Correct for OS snake path board indexing
+    correctBoardIndex(index, correctToOS = true){
+        if(!this._correctMap){
+            const cols = this.gameBoard.cols;
+
+            this._correctMap = new Array(4*cols);
+            for (let index = 0; index < cols; index++) {
+                this._correctMap[index] = cols - index - 1;
+                this._correctMap[cols*2 + index] = cols*3 - index - 1;
+            }
+            for (let index = 0; index < cols; index++) {
+                this._correctMap[cols + index] = cols + index;
+                this._correctMap[cols*3 + index] = cols*3 + index;
+            }
+        }
+        
+        if(correctToOS){                            
+            return this._correctMap[index]; //correct from board To OS index
+        }else{
+            return this._correctMap.find((val) => (val === index)); //correct from OS to board index
+        }
+    }
+
     /**
      * Initialize online game system
      */
@@ -139,7 +162,7 @@ export class OnlineGameManager {
             this.playerNick,
             this.playerPassword,
             size,
-            null // null para criar novo jogo
+            null // game=null para criar novo jogo
         );
 
         if (response.error) {
@@ -271,6 +294,10 @@ export class OnlineGameManager {
         if (update.turn !== undefined)      this.serverState.turn = update.turn;
         if (update.winner !== undefined)    this.serverState.winner = update.winner;
         
+        // Reset diceRolled for the new turn
+        if( !this.isMyTurn && (update.turn === this.playerNick)){
+            this.gameBoard.diceRolled = false;
+        }
         // Update isMyTurn
         this.isMyTurn = (update.turn === this.playerNick);
         
@@ -279,6 +306,7 @@ export class OnlineGameManager {
     
     /**
      * Handle dice update
+     * @param {{stickValues: boolean[], value: number, keepPlaying: boolean} | null} dice - Representação do dado de paus. Null se tiver sido usado.
      */
     handleDiceUpdate(dice) {
         console.log('Dice update:', dice);
@@ -289,12 +317,17 @@ export class OnlineGameManager {
             this.gameBoard.diceRolled = true;
             
             // Update dice display
+            const diceCanvas = document.getElementById('dice-canvas');
+            const sticks = new StickCanvas(150, 75, dice.stickValues);
+            diceCanvas.innerHTML = '';
+            diceCanvas.appendChild(sticks.canvas);
+            
             const diceResult = document.getElementById('diceResult');
             const names = { 1: 'Tâb', 2: 'Itneyn', 3: 'Teláteh', 4: 'Arba\'ah', 6: 'Sitteh' };
             
             if (diceResult) {
                 diceResult.innerHTML = '';
-                diceResult.appendChild(new StickCanvas(150, 75, dice.stickValues).canvas);
+
                 diceResult.innerHTML = diceResult.innerHTML + `
                     <div class="dice-result-info">
                     <div class="dice-value">Dado: ${dice.value} (${names[dice.value]})</div>
@@ -345,6 +378,14 @@ export class OnlineGameManager {
     handleTurnUpdate(turn) {
         console.log('Turn update:', turn);
         
+        //Reset dice on turn change
+        if(!this.isMyTurn && (turn === this.playerNick)){
+            const diceCanvas = document.getElementById('dice-canvas');
+            const sticks = new StickCanvas(150, 75, [false,false,false,false]);
+            diceCanvas.innerHTML = '';
+            diceCanvas.appendChild(sticks.canvas);
+        }
+
         this.isMyTurn = (turn === this.playerNick);
         
         if (this.gameBoard) {
@@ -383,6 +424,7 @@ export class OnlineGameManager {
     
     /**
      * Handle must pass update
+     * @param {string} mustPass - Nick
      */
     handleMustPassUpdate(mustPass) {
         console.log('Must pass update:', mustPass);
@@ -395,12 +437,13 @@ export class OnlineGameManager {
                 if (this.isMyTurn && this.currentGame) {
                     this.passTurn();
                 }
-            }, 2000);
+            }, 2500);
         }
     }
     
     /**
      * Handle cell update
+     * @param {{square: number, position: number}} cell
      */
     handleCellUpdate(cell) {
         console.log('Cell update:', cell);
@@ -555,7 +598,8 @@ export class OnlineGameManager {
                 }
                 
                 // Create piece
-                board.content[index] = new Piece(player, index, state);
+                const i = this.correctBoardIndex(index, true);
+                board.content[i] = new Piece(player, i, state);
             }
         });
     }
@@ -613,7 +657,7 @@ export class OnlineGameManager {
                 this.playerNick,
                 this.playerPassword,
                 this.currentGame.id,
-                cellToSend
+                this.correctBoardIndex(cellToSend, true) // Official server uses different indexing to our gameBoard
             );
 
             if (response.error) {
@@ -639,7 +683,7 @@ export class OnlineGameManager {
 
         try {
             console.log('Passing turn online...');
-            
+
             const response = await this.clientAPI.passTurn(
                 this.playerNick,
                 this.playerPassword,
@@ -650,6 +694,11 @@ export class OnlineGameManager {
             if (response.error) {
                 this.showError('Pass error: ' + response.error);
                 return;
+            }else{
+                const diceCanvas = document.getElementById('dice-canvas');
+                const sticks = new StickCanvas(150, 75, [false,false,false,false]);
+                diceCanvas.innerHTML = '';
+                diceCanvas.appendChild(sticks.canvas);
             }
 
             console.log('Turn passed online:', response);
