@@ -143,15 +143,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Update tooltip and classes
                 if (isLoggedIn) {
-                    loginBtn.classList.add('logged-in');
-                    const serverName = server === 'official' ? 'Official' : 'Group';
-                    loginBtn.title = `Logged into ${serverName} Server as ${nick}. Click to logout.`;
-                    
+                    const serverName = server === 'official' ? 'Official' : 'Group';                    
                     // Add status indicator to navbar
                     addAuthStatusIndicator(server, nick);
                 } else {
-                    loginBtn.classList.remove('logged-in');
-                    loginBtn.title = 'Click to login (requires selecting an online game mode first)';
                     
                     // Remove status indicator
                     removeAuthStatusIndicator();
@@ -166,7 +161,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const creds = window.AuthManager.getCredentials(loggedInServer);
                 const serverName = loggedInServer === 'official' ? 'Official' : 'Group';
                 loginBtn.classList.add('logged-in');
-                loginBtn.title = `Logged into ${serverName} Server as ${creds.nick}. Click to logout.`;
                 addAuthStatusIndicator(loggedInServer, creds.nick);
             }
         }
@@ -183,7 +177,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const indicator = document.createElement('div');
         indicator.className = 'nav-auth-indicator logged-in';
         indicator.innerHTML = `
-            <div class="nav-auth-indicator-dot logged-in"></div>
             <span class="nav-auth-username">${nick.substring(0, 12)}${nick.length > 12 ? '...' : ''}</span>
             <span class="nav-auth-server">(${server === 'official' ? 'Official' : 'Group'})</span>
         `;

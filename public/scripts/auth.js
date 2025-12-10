@@ -9,7 +9,7 @@ class AuthManager {
         this.setupEventListeners();
         this.initNotificationSystem();
         this.init();
-        
+
         // Estado de login ativo
         this.isLoggedIn = this.hasAnyLogin();
     }
@@ -26,13 +26,13 @@ class AuthManager {
      */
     init() {
         console.log('AuthManager initialized');
-        
+
         // Update login button based on stored credentials
         this.updateLoginButton();
-        
+
         // Ensure form buttons have consistent dimensions
         this.ensureButtonConsistency();
-        
+
         // Dispatch initial auth state event
         this.dispatchAuthStateEvent();
     }
@@ -45,12 +45,12 @@ class AuthManager {
         // CSS handles the actual dimensions in modals.css
         const loginBtn = document.querySelector('#loginForm button[type="submit"]');
         const registerBtn = document.querySelector('#registerForm button[type="submit"]');
-        
+
         if (loginBtn && registerBtn) {
             // Add consistent classes
             loginBtn.classList.add('auth-submit-btn');
             registerBtn.classList.add('auth-submit-btn');
-            
+
             // Ensure same text structure
             loginBtn.textContent = 'Login';
             registerBtn.textContent = 'Create Account';
@@ -124,7 +124,7 @@ class AuthManager {
         // Password validation
         const confirmPassword = document.getElementById('confirmPassword');
         const registerPassword = document.getElementById('registerPassword');
-        
+
         if (confirmPassword && registerPassword) {
             confirmPassword.addEventListener('input', () => this.validatePasswordMatch());
             registerPassword.addEventListener('input', () => this.validatePasswordMatch());
@@ -159,29 +159,42 @@ class AuthManager {
      */
     handleNavbarLoginClick() {
         const loggedInServer = this.getLoggedInServer();
-        
+
         if (loggedInServer) {
             // User is logged in to some server - show logout options
             this.showLogoutMenu(loggedInServer);
         } else {
-            // User is not logged in
-            this.showLoginInfo();
+            // User is not logged in - abrir a seleção de servidor
+            this.openForServerSelection();
         }
+    }
+
+    /**
+     * Open server selection for login when not logged in
+     */
+    openForServerSelection() {
+        this.showServerSelection();
     }
 
     /**
      * Show logout menu with options
      */
     showLogoutMenu(serverKey) {
+        // Remove any existing menu
+        const existingMenu = document.querySelector('.auth-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+
         const serverName = serverKey === 'official' ? 'Official Server' : 'Group Server';
         const nick = this.getCredentials(serverKey)?.nick || 'User';
-        
+
         // Create logout menu
         const menu = document.createElement('div');
         menu.className = 'auth-menu';
         menu.innerHTML = `
             <div class="auth-menu-header">
-                <strong>Logged in as ${nick}</strong>
+                <strong>${nick}</strong>
                 <small>${serverName}</small>
             </div>
             <button class="auth-menu-btn auth-menu-logout" data-action="logout">
@@ -192,63 +205,47 @@ class AuthManager {
                 <span>Switch Account</span>
                 <small>Login to different account/server</small>
             </button>
-            <button class="auth-menu-btn auth-menu-cancel" data-action="cancel">
-                Cancel
-            </button>
         `;
-        
+
         // Add event listeners
         menu.querySelector('[data-action="logout"]').addEventListener('click', () => {
-            document.body.removeChild(menu);
+            menu.remove();
             this.logoutFromServer(serverKey);
         });
-        
+
         menu.querySelector('[data-action="switch"]').addEventListener('click', () => {
-            document.body.removeChild(menu);
+            menu.remove();
             this.showServerSelection();
         });
-        
-        menu.querySelector('[data-action="cancel"]').addEventListener('click', () => {
-            document.body.removeChild(menu);
-        });
-        
+
+
         // Add menu to body
         document.body.appendChild(menu);
-        
+
         // Close menu when clicking outside
         const closeMenu = (e) => {
             if (!menu.contains(e.target) && e.target.id !== 'loginBtn') {
-                document.body.removeChild(menu);
+                menu.remove();
                 document.removeEventListener('click', closeMenu);
             }
         };
-        
+
+        // Small delay to not close immediately
         setTimeout(() => {
             document.addEventListener('click', closeMenu);
         }, 100);
     }
 
     /**
-     * Show login information when not logged in
-     */
-    showLoginInfo() {
-        this.showNotification(
-            'To play online: 1) Click "Play" 2) Choose an online mode 3) Login will be requested automatically',
-            'info',
-            5000
-        );
-        
-        // Open play modal to help user
-        const playBtn = document.getElementById('playBtn');
-        if (playBtn) {
-            playBtn.click();
-        }
-    }
-
-    /**
-     * Show server selection for switching accounts
+     * Show server selection for switching accounts or initial login
      */
     showServerSelection() {
+        // Remove any existing server selection modal
+        const existingModal = document.querySelector('.server-selection-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
         const modal = document.createElement('div');
         modal.className = 'server-selection-modal';
         modal.innerHTML = `
@@ -270,31 +267,25 @@ class AuthManager {
                         </span>
                     </button>
                 </div>
-                <div class="server-selection-actions">
-                    <button class="btn-cancel">Cancel</button>
-                </div>
             </div>
         `;
-        
+
         // Add event listeners
         modal.querySelectorAll('.server-option').forEach(option => {
             option.addEventListener('click', () => {
-                document.body.removeChild(modal);
+                modal.remove();
                 this.openForServer(option.dataset.server);
             });
         });
-        
-        modal.querySelector('.btn-cancel').addEventListener('click', () => {
-            document.body.removeChild(modal);
-        });
-        
+
+
         // Close when clicking outside
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
-                document.body.removeChild(modal);
+                modal.remove();
             }
         });
-        
+
         document.body.appendChild(modal);
     }
 
@@ -304,26 +295,26 @@ class AuthManager {
      */
     openForServer(serverKey) {
         this.currentServer = serverKey;
-        
+
         // Update ClientAPI to use this server
         if (window.ClientAPI) {
             window.ClientAPI.setServer(serverKey);
         }
-        
+
         // Update UI with server info
         this.updateServerDisplay(serverKey);
-        
+
         // Show modal with login tab
         const loginModal = document.getElementById('loginModal');
         if (loginModal) {
             loginModal.classList.remove('hidden');
         }
-        
+
         this.switchToLogin();
-        
+
         // Try to pre-fill saved credentials
         this.prefillCredentials(serverKey);
-        
+
         // Ensure button consistency
         this.ensureButtonConsistency();
     }
@@ -333,21 +324,21 @@ class AuthManager {
      */
     updateServerDisplay(serverKey) {
         const serverInfo = window.ClientAPI?.getServerInfo();
-        
+
         if (serverInfo) {
             const serverName = serverKey === 'official' ? 'Official Server' : 'Group Server';
-            
+
             // Update server display in auth modal if it exists
             const loginServerName = document.getElementById('loginServerName');
             const registerServerName = document.getElementById('registerServerName');
-            
+
             if (loginServerName) loginServerName.textContent = serverName;
             if (registerServerName) registerServerName.textContent = serverName;
-            
+
             // Update placeholders
             const loginNick = document.getElementById('loginNick');
             const registerNick = document.getElementById('registerNick');
-            
+
             if (loginNick) loginNick.placeholder = `Your nickname on ${serverName}`;
             if (registerNick) registerNick.placeholder = `Choose a nickname for ${serverName}`;
         }
@@ -359,7 +350,7 @@ class AuthManager {
     prefillCredentials(serverKey) {
         const creds = this.getCredentials(serverKey);
         const loginNick = document.getElementById('loginNick');
-        
+
         if (loginNick && creds && creds.nick) {
             loginNick.value = creds.nick;
             // Don't pre-fill password for security
@@ -383,31 +374,31 @@ class AuthManager {
 
         try {
             this.setLoading(submitBtn, true);
-            
+
             if (!window.ClientAPI) {
                 throw new Error('Client API not available');
             }
 
             // Use register endpoint for login (as per specification)
             await window.ClientAPI.register(nick, password);
-            
+
             // Save credentials for this server
             this.saveCredentials(this.currentServer, nick, password);
-            
+
             // Update UI
             this.updateAuthState();
             this.showLoginSuccess();
-            
+
             // Show success and close modal
             this.showNotification(`Successfully logged into ${this.getServerName()}`, 'success', 3000);
             this.closeAuthModal();
-            
+
             // Trigger event for other components
-            this.triggerAuthEvent('login', { 
-                server: this.currentServer, 
-                nick: nick 
+            this.triggerAuthEvent('login', {
+                server: this.currentServer,
+                nick: nick
             });
-            
+
         } catch (error) {
             console.error('Login error:', error);
             const errorMessage = this.getErrorMessage(error);
@@ -430,39 +421,39 @@ class AuthManager {
 
         try {
             this.setLoading(submitBtn, true);
-            
+
             if (!window.ClientAPI) {
                 throw new Error('Client API not available');
             }
 
             // Register on current server
             await window.ClientAPI.register(nick, password);
-            
+
             // Save credentials
             this.saveCredentials(this.currentServer, nick, password);
-            
+
             // Update UI and show success
             this.updateAuthState();
             this.showLoginSuccess();
             this.showNotification(`Account created on ${this.getServerName()}! Welcome, ${nick}!`, 'success', 4000);
-            
+
             // Switch back to login tab with pre-filled nick
             this.switchToLogin();
             const loginNick = document.getElementById('loginNick');
             const loginPassword = document.getElementById('loginPassword');
-            
+
             if (loginNick) loginNick.value = nick;
             if (loginPassword) {
                 loginPassword.value = '';
                 loginPassword.focus();
             }
-            
+
             // Trigger event
-            this.triggerAuthEvent('register', { 
-                server: this.currentServer, 
-                nick: nick 
+            this.triggerAuthEvent('register', {
+                server: this.currentServer,
+                nick: nick
             });
-            
+
         } catch (error) {
             console.error('Registration error:', error);
             const errorMessage = this.getErrorMessage(error);
@@ -480,17 +471,17 @@ class AuthManager {
             this.showNotification('Please fill in all fields', 'warning', 3000);
             return false;
         }
-        
+
         if (nick.length < 3 || nick.length > 20) {
             this.showNotification('Nickname must be 3-20 characters', 'warning', 3000);
             return false;
         }
-        
+
         if (!/^[a-zA-Z0-9_]+$/.test(nick)) {
             this.showNotification('Nickname can only contain letters, numbers, and underscore', 'warning', 3000);
             return false;
         }
-        
+
         return true;
     }
 
@@ -502,27 +493,27 @@ class AuthManager {
             this.showNotification('Please fill in all fields', 'warning', 3000);
             return false;
         }
-        
+
         if (nick.length < 3 || nick.length > 20) {
             this.showNotification('Nickname must be 3-20 characters', 'warning', 3000);
             return false;
         }
-        
+
         if (!/^[a-zA-Z0-9_]+$/.test(nick)) {
             this.showNotification('Nickname can only contain letters, numbers, and underscore', 'warning', 3000);
             return false;
         }
-        
+
         if (password.length < 4) {
             this.showNotification('Password must be at least 4 characters', 'warning', 3000);
             return false;
         }
-        
+
         if (password !== confirmPassword) {
             this.showNotification('Passwords do not match', 'warning', 3000);
             return false;
         }
-        
+
         return true;
     }
 
@@ -533,9 +524,9 @@ class AuthManager {
         const password = document.getElementById('registerPassword')?.value;
         const confirm = document.getElementById('confirmPassword')?.value;
         const errorElement = document.getElementById('passwordError');
-        
+
         if (!errorElement) return;
-        
+
         if (confirm && password !== confirm) {
             this.showError(errorElement, 'Passwords do not match');
         } else {
@@ -549,9 +540,9 @@ class AuthManager {
     validateNickname() {
         const nick = document.getElementById('registerNick')?.value;
         const errorElement = document.getElementById('nickError');
-        
+
         if (!errorElement) return;
-        
+
         if (nick && !/^[a-zA-Z0-9_]+$/.test(nick)) {
             this.showError(errorElement, 'Only letters, numbers, and underscore allowed');
         } else {
@@ -565,14 +556,14 @@ class AuthManager {
     switchToLogin() {
         const authTabPanes = document.querySelectorAll('.auth-tab-pane');
         authTabPanes.forEach(pane => pane.classList.remove('active'));
-        
+
         const loginTab = document.getElementById('loginTab');
         if (loginTab) loginTab.classList.add('active');
-        
+
         // Clear register form
         const registerForm = document.getElementById('registerForm');
         if (registerForm) registerForm.reset();
-        
+
         this.clearFormErrors();
     }
 
@@ -582,14 +573,14 @@ class AuthManager {
     switchToRegister() {
         const authTabPanes = document.querySelectorAll('.auth-tab-pane');
         authTabPanes.forEach(pane => pane.classList.remove('active'));
-        
+
         const registerTab = document.getElementById('registerTab');
         if (registerTab) registerTab.classList.add('active');
-        
+
         // Clear login form
         const loginForm = document.getElementById('loginForm');
         if (loginForm) loginForm.reset();
-        
+
         this.clearFormErrors();
     }
 
@@ -601,16 +592,16 @@ class AuthManager {
         if (modal) {
             modal.classList.add('hidden');
         }
-        
+
         this.clearFormErrors();
-        
+
         // Reset forms
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
-        
+
         if (loginForm) loginForm.reset();
         if (registerForm) registerForm.reset();
-        
+
         // Always return to login tab when closing
         this.switchToLogin();
     }
@@ -620,18 +611,18 @@ class AuthManager {
      */
     saveCredentials(server, nick, password) {
         if (!server || !nick || !password) return;
-        
+
         const credentials = this.loadCredentials();
-        
+
         // Store hash of password (not plain text) for security
         const passwordHash = btoa(password); // Simple base64 encoding
-        
+
         credentials[server] = {
             nick: nick,
             passwordHash: passwordHash,
             lastLogin: new Date().toISOString()
         };
-        
+
         localStorage.setItem('serverCredentials', JSON.stringify(credentials));
         console.log(`Credentials saved for ${server} server`);
     }
@@ -654,9 +645,9 @@ class AuthManager {
     getCredentials(serverKey) {
         const credentials = this.loadCredentials();
         const serverCreds = credentials[serverKey];
-        
+
         if (!serverCreds) return null;
-        
+
         try {
             const password = atob(serverCreds.passwordHash);
             return {
@@ -720,11 +711,11 @@ class AuthManager {
      */
     logoutFromServer(serverKey) {
         const credentials = this.loadCredentials();
-        
+
         if (credentials[serverKey]) {
             const nick = credentials[serverKey].nick;
             const serverName = serverKey === 'official' ? 'Official' : 'Group';
-            
+
             // Check if this affects any pending online setup
             if (window.pendingOnlineSetup && window.pendingOnlineSetup.serverKey === serverKey) {
                 window.pendingOnlineSetup = null;
@@ -734,10 +725,10 @@ class AuthManager {
                     4000
                 );
             }
-            
+
             // Check if this affects any active online game
-            if (window.onlineGameManager && 
-                window.onlineGameManager.currentGame && 
+            if (window.onlineGameManager &&
+                window.onlineGameManager.currentGame &&
                 window.onlineGameManager.currentServer === serverKey) {
                 this.showNotification(
                     `Active online game on ${serverName} Server will be disconnected`,
@@ -750,14 +741,14 @@ class AuthManager {
                     }
                 }, 1000);
             }
-            
+
             // Remove credentials
             delete credentials[serverKey];
             localStorage.setItem('serverCredentials', JSON.stringify(credentials));
-            
+
             // Update UI
             this.updateAuthState();
-            
+
             this.showNotification(
                 `Logged out from ${serverName} Server. Goodbye, ${nick}!`,
                 'info',
@@ -772,26 +763,23 @@ class AuthManager {
     updateLoginButton() {
         const loginBtn = document.getElementById('loginBtn');
         if (!loginBtn) return;
-        
+
         const loggedInServer = this.getLoggedInServer();
-        
+
         if (loggedInServer) {
             const creds = this.getCredentials(loggedInServer);
             const serverName = loggedInServer === 'official' ? 'Official' : 'Group';
             const shortNick = creds.nick.length > 10 ? creds.nick.substring(0, 8) + '...' : creds.nick;
-            
+
             loginBtn.innerHTML = `
-                <span class="auth-status logged-in">
-                    <span class="auth-user">${shortNick}</span>
-                    <span class="auth-server">${serverName}</span>
-                </span>
-            `;
-            loginBtn.title = `Logged into ${serverName} Server as ${creds.nick}. Click to logout or switch account.`;
-            loginBtn.classList.add('logged-in');
+            <span class="auth-status">
+                <span class="auth-data">${shortNick} ${serverName}</span>
+            </span>
+        `;
+
         } else {
             loginBtn.innerHTML = '<span class="auth-status">Login</span>';
             loginBtn.title = 'Click to login (requires selecting an online game mode first)';
-            loginBtn.classList.remove('logged-in');
         }
     }
 
@@ -843,7 +831,7 @@ class AuthManager {
      */
     setLoading(button, isLoading) {
         if (!button) return;
-        
+
         if (isLoading) {
             button.disabled = true;
             button.textContent = 'Loading...';
@@ -865,9 +853,9 @@ class AuthManager {
      */
     getErrorMessage(error) {
         if (!error) return 'Unknown error occurred';
-        
+
         const message = error.message || error.toString();
-        
+
         // Map common server errors to user-friendly messages
         if (message.includes('User registered with a different password')) {
             return 'This nickname is already registered with a different password on this server';
@@ -887,7 +875,7 @@ class AuthManager {
         if (message.includes('timed out') || message.includes('timeout')) {
             return 'Connection timeout - server may be busy';
         }
-        
+
         return message;
     }
 
@@ -900,7 +888,7 @@ class AuthManager {
     }
 
     /**
-     * Initialize notification system - UPDATED (no CSS here)
+     * Initialize notification system
      */
     initNotificationSystem() {
         // Create notification container if it doesn't exist
@@ -913,7 +901,7 @@ class AuthManager {
     }
 
     /**
-     * Show notification - UPDATED (no close button, auto-remove after 10s)
+     * Show notification
      */
     showNotification(message, type = 'info', duration = 10000) {
         const container = document.getElementById('notificationContainer');
@@ -922,23 +910,23 @@ class AuthManager {
             console.log(`${type.toUpperCase()}: ${message}`);
             return null;
         }
-        
+
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
-        
+
         const messageSpan = document.createElement('span');
         messageSpan.textContent = message;
-        
+
         // Add progress bar for visual feedback
         const progressBar = document.createElement('div');
         progressBar.className = 'notification-progress';
-        
+
         notification.appendChild(messageSpan);
         notification.appendChild(progressBar);
-        
+
         // Add to container (top of the stack)
         container.insertBefore(notification, container.firstChild);
-        
+
         // Limit number of notifications to avoid clutter
         const maxNotifications = 3;
         const notifications = container.querySelectorAll('.notification');
@@ -947,7 +935,7 @@ class AuthManager {
                 this.removeNotification(notifications[i]);
             }
         }
-        
+
         // Auto-remove after duration (default 10 seconds)
         if (duration > 0) {
             setTimeout(() => {
@@ -956,7 +944,7 @@ class AuthManager {
                 }
             }, duration);
         }
-        
+
         return notification;
     }
 

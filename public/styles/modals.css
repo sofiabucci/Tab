@@ -388,10 +388,6 @@ button:hover {
     margin-left: 8px;
 }
 
-.server-status-indicator.logged-in {
-    background-color: #d4edda;
-    color: #155724;
-}
 
 .server-status-indicator.not-logged {
     background-color: #f8d7da;
@@ -576,55 +572,6 @@ button:hover {
 
 /* ===== AUTH NAVBAR & STATUS ===== */
 
-/* Login button states */
-#loginBtn.logged-in {
-    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-    color: white;
-    border-color: #3d8b40;
-}
-
-#loginBtn.logged-in:hover {
-    background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-}
-
-.auth-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-}
-
-.auth-status.logged-in {
-    font-weight: 500;
-}
-
-.auth-user {
-    font-weight: 600;
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.auth-server {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.85em;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-#loginBtn.logged-in::after {
-    content: '▼';
-    margin-left: 4px;
-    font-size: 0.8em;
-    opacity: 0.8;
-}
-
-
 
 #loginBtn.new-login {
     animation: pulse 0.5s ease 2;
@@ -643,24 +590,6 @@ button:hover {
     margin-left: auto;
     margin-right: 15px;
 }
-
-.nav-auth-indicator.logged-in {
-    color: #4CAF50;
-}
-
-.nav-auth-indicator-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: #ccc;
-}
-
-.nav-auth-indicator-dot.logged-in {
-    background-color: #4CAF50;
-    animation: nav-pulse 2s infinite;
-}
-
-
 
 /* Navbar Server Status */
 .server-status-container {
@@ -943,5 +872,72 @@ button:hover {
     background-color: rgba(255, 255, 255, 0.7);
     border-radius: 0 0 0 5px;
     animation: notification-progress 10s linear forwards;
+}
+
+
+
+
+/* Menu de auth quando logado */
+.auth-menu {
+    position: absolute;
+    top: 60px;
+    right: 10px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 12px;
+    z-index: 1000;
+    min-width: 220px;
+    font-family: inherit;
+    animation: fadeIn 0.2s ease;
+}
+
+
+.auth-menu-header {
+    padding: 8px 0 12px 0;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.auth-menu-header strong {
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.auth-menu-header small {
+    display: block;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.auth-menu-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    margin: 4px 0;
+    text-align: left;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.auth-menu-logout {
+    color: #e74c3c;
+}
+
+.auth-menu-switch {
+    color: #3498db;
+}
+
+
+.auth-menu-btn:hover {
+    background: #f5f5f5;
 }
 
