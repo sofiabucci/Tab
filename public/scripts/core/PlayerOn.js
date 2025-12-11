@@ -35,25 +35,33 @@ export class OnlineGameManager {
     }
 
     // Correct for OS snake path board indexing
-    correctBoardIndex(index, correctToOS = true){
-        if(!this._correctMap){
-            const cols = this.gameBoard.cols;
-
-            this._correctMap = new Array(4*cols);
-            for (let index = 0; index < cols; index++) {
-                this._correctMap[index] = cols - index - 1;
-                this._correctMap[cols*2 + index] = cols*3 - index - 1;
-            }
-            for (let index = 0; index < cols; index++) {
-                this._correctMap[cols + index] = cols + index;
-                this._correctMap[cols*3 + index] = cols*3 + index;
-            }
+    static correctIndexToOS(cols, index){
+        // Get row number
+        switch(Math.floor(index / cols)){
+            case 0:     
+                return 4*cols - 1 - index;
+            case 1:
+                return index + cols;
+            case 2:     
+                return 4*cols - 1 - index;
+            case 3:
+                return index % cols;
+            default:    console.error("[CorrectIndexToOS] Bad index: ", index);
         }
-        
-        if(correctToOS){                            
-            return this._correctMap[index]; //correct from board To OS index
-        }else{
-            return this._correctMap.find((val) => (val === index)); //correct from OS to board index
+    }
+
+    static correctIndexFromOS(cols, index){
+        // Get row number
+        switch(Math.floor(index / cols)){
+            case 0:     
+                return 3*cols + index;
+            case 1:
+                return 4*cols - 1 - index;
+            case 2:     
+                return index - cols;
+            case 3:
+                return 4*cols - 1 - index;
+            default:    console.error("[CorrectIndexFromOS] Bad index: ", index);
         }
     }
 
@@ -356,7 +364,7 @@ export class OnlineGameManager {
         this.gameBoard.render();
 
         //Flip board for player 2
-        if(this.serverState.players && this.serverState.players[this.playerNick] === 'Blue'){
+        if(this.serverState.players && this.serverState.players[this.playerNick] === 'Red'){
             document.getElementById('board').style.transform = 'rotate(180deg)';
         };
     }
@@ -598,7 +606,7 @@ export class OnlineGameManager {
                 }
                 
                 // Create piece
-                const i = this.correctBoardIndex(index, true);
+                const i = OnlineGameManager.correctIndexFromOS(this.gameBoard.cols, index);
                 board.content[i] = new Piece(player, i, state);
             }
         });
@@ -653,11 +661,12 @@ export class OnlineGameManager {
                 cellToSend = toCell;
             }
             
+            const i = OnlineGameManager.correctIndexToOS(this.gameBoard.cols, cellToSend);
             const response = await this.clientAPI.notify(
                 this.playerNick,
                 this.playerPassword,
                 this.currentGame.id,
-                this.correctBoardIndex(cellToSend, true) // Official server uses different indexing to our gameBoard
+                i // Official server uses different indexing to our gameBoard
             );
 
             if (response.error) {

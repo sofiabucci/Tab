@@ -29,12 +29,12 @@ export class MovementCalculator {
         for (let i = 0; i < cols * rows; i++) {
             switch (Math.floor(i / cols)) {
                 case 0:
-                case 2:                   // Issue with OS board indexing.
-                    flow.set(i, [i + 1]); // This used to be i, [i-1] 
+                case 2:                   
+                    flow.set(i, [i - 1]);
                     break;
                 case 1:
                 case 3:
-                    flow.set(i, [i - 1]); // This used to be i, [i+1]
+                    flow.set(i, [i + 1]);
                     break;
                 default:
                     console.error("Could not build movement map " + rows + ";" + cols);
