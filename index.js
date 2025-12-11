@@ -130,7 +130,7 @@ function handleUpdate(req, res, query) {
     }
 
     //Register Connection
-    if(!activeConnections[gameID]){
+    if(!activeConnections[gameId]){
         activeConnections[gameId] = [];
     }
     activeConnections[gameId].push(res);
@@ -275,7 +275,7 @@ async function handleJoin(res, data) {
         const result = await game.join(data.group, data.nick, data.password, data.size);
         sendResponse(res, 200, result);
         if(result){
-            notifyGameUpdate(result.game);
+            notifyGameUpdate(result.game, storage.getGame(result.game));
         }
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
@@ -313,7 +313,9 @@ async function handleRoll(res, data) {
     try {
         await game.roll(data.nick, data.password, data.game);
         sendResponse(res, 200, {});
-        notifyGameUpdate(data.game);
+
+        const gameData = storage.getGame(data.game);
+        notifyGameUpdate(data.game, gameData);
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
@@ -332,6 +334,9 @@ async function handlePass(res, data) {
     try {
         await game.pass(data.nick, data.password, data.game);
         sendResponse(res, 200, {});
+
+        const gameData = storage.getGame(data.game);
+        notifyGameUpdate(data.game, gameData);
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
@@ -346,6 +351,9 @@ async function handleNotify(res, data) {
     try {
         await game.notify(data.nick, data.password, data.game, data.cell);
         sendResponse(res, 200, {});
+
+        const gameData = storage.getGame(data.game);
+        notifyGameUpdate(data.game, gameData);
     } catch (error) {
         sendResponse(res, 400, { error: error.message });
     }
