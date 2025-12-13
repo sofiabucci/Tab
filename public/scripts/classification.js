@@ -11,7 +11,8 @@ class Classification {
 
         // ---- ONLINE SERVERS ----
         this.server8008 = "http://twserver.alunos.dcc.fc.up.pt:8008";
-        this.server8104 = "http://localhost:8104";
+        this.server8104 = "http://twserver.alunos.dcc.fc.up.pt:8104";
+        // this.server8104 = "http://localhost:8104";
         
         this.onlineStats8008 = [];
         this.onlineStats8104 = [];

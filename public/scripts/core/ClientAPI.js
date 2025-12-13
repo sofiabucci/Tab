@@ -14,7 +14,8 @@
     },
     group: {
       name: 'Group Server',
-      url: 'http://localhost:8104/',
+      url: 'http://twserver.alunos.dcc.fc.up.pt:8104/',
+      // url: 'http://localhost:8104/',
       port: 8104
     }
   };
