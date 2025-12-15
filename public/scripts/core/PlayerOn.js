@@ -897,4 +897,6 @@ document.addEventListener('DOMContentLoaded', function () {
             window.initOnlineGameManager();
         }
     }
+
+    document.getElementById('forceRoll').onclick = () => {if(window.onlineGameManager) window.onlineGameManager.rollDice();};
 });
