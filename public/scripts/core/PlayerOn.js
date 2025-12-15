@@ -326,9 +326,12 @@ export class OnlineGameManager {
             
             // Update dice display
             const diceCanvas = document.getElementById('dice-canvas');
-            const sticks = new StickCanvas(150, 75, dice.stickValues);
+            const stickCanvas = new StickCanvas(150, 75, null);
             diceCanvas.innerHTML = '';
-            diceCanvas.appendChild(sticks.canvas);
+            diceCanvas.appendChild(stickCanvas.canvas);
+            stickCanvas.faces = dice.stickValues;
+            stickCanvas.drawWithAnimation();
+            
             
             const diceResult = document.getElementById('diceResult');
             const names = { 1: 'Tâb', 2: 'Itneyn', 3: 'Teláteh', 4: 'Arba\'ah', 6: 'Sitteh' };
@@ -389,9 +392,10 @@ export class OnlineGameManager {
         //Reset dice on turn change
         if(!this.isMyTurn && (turn === this.playerNick)){
             const diceCanvas = document.getElementById('dice-canvas');
-            const sticks = new StickCanvas(150, 75, [false,false,false,false]);
+            const stickCanvas = new StickCanvas(150, 75, [false,false,false,false]);
             diceCanvas.innerHTML = '';
-            diceCanvas.appendChild(sticks.canvas);
+            diceCanvas.appendChild(stickCanvas.canvas);
+            stickCanvas.draw(true);
         }
 
         this.isMyTurn = (turn === this.playerNick);
@@ -705,9 +709,10 @@ export class OnlineGameManager {
                 return;
             }else{
                 const diceCanvas = document.getElementById('dice-canvas');
-                const sticks = new StickCanvas(150, 75, [false,false,false,false]);
+                const stickCanvas = new StickCanvas(150, 75, [false,false,false,false]);
                 diceCanvas.innerHTML = '';
-                diceCanvas.appendChild(sticks.canvas);
+                diceCanvas.appendChild(stickCanvas.canvas);
+                stickCanvas.draw(true);
             }
 
             console.log('Turn passed online:', response);

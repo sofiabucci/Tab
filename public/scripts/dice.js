@@ -12,6 +12,8 @@
     const container = document.getElementById('test-container');  
     const sticks = new StickCanvas(150, 75, [true, true, false, false]);  
     container.appendChild(sticks.canvas);
+    sticks.faces = [true, true, true, false];
+    sticks.drawWithAnimation();
  */
 export class StickCanvas {
     static CONTAINER = 'sticks-container';
@@ -36,18 +38,21 @@ export class StickCanvas {
 
         this.gc = this.canvas.getContext('2d');
 
-        // Configuration
         this.stickColor = '#8b4513'; // Dark wood
         this.boardColor = '#654321'; // Darker wood
-        this.stickLight = '#f0f0f0'; // Dark wood
-        this.padding = 15; // Space between sticks
+        this.stickLight = '#f0f0f0'; // Light wood
+        this.padding = 15;
 
-        this.draw();
-    }    
+        // Animation State
+        this.animationId = null;
+        this.animFrame = -1; 
+        this.animTick = 0;   
+
+        this.draw(true);
+    }
 
     drawStick(x, y, w, h, radius, color) {
         const gc = this.gc;
-        
         gc.beginPath();
         gc.moveTo(x + radius, y);
         gc.lineTo(x + w - radius, y);
@@ -68,35 +73,92 @@ export class StickCanvas {
         gc.stroke();
     }
 
+    drawWithAnimation(){
+        return this.draw(false);
+    }
+
     /**
-     * Main render function
-     * Clears the canvas and draws 4 sticks
+     * Main Draw Function
+     * @param {boolean} skipAnimation 
+     * - If TRUE: Stops animation and draws the final static result (faces).
+     * - If FALSE: Plays the "One Wave" animation.
      */
-    draw() {
+    draw(skipAnimation = true) {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
+
         this.gc.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        const stickCount = this.faces.length;
-
-        // Stick width is based on canvas size and padding
+        const stickCount = 4;
+        const baseHeight = this.canvas.height * 0.8;
         const stickWidth = (this.canvas.width - (this.padding * (stickCount + 1))) / stickCount;
-        const stickHeight = this.canvas.height * 0.8; // 80% of canvas height
-        const startY = (this.canvas.height - stickHeight) / 2; // Center vertically
+        const startY = (this.canvas.height - baseHeight) / 2;
         const stickRadius = Math.min(10, stickWidth / 2);
+
+        // --- BRANCH A: SHOW STATIC RESULT ---
+        if (skipAnimation) {
+            this.animFrame = -1; 
+
+            for (let i = 0; i < stickCount; i++) {
+                const x = this.padding + (i * (stickWidth + this.padding));
+                this.drawStick(
+                    x,
+                    startY,
+                    stickWidth,
+                    baseHeight,
+                    stickRadius,
+                    this.faces[i] ? this.stickLight : this.stickColor
+                );
+            }
+            return;
+        }
+
+        // --- BRANCH B: ANIMATE WAVE ---
+        const WAVE_PATTERN = [1.0, 1.25, 0.85, 1.0];
+        const SPEED_DIVISOR = 4;
+
+        if (this.animFrame === -1) {
+            this.animFrame = 0;
+            this.animTick = 0;
+        }
+
+        this.animTick++;
+        if (this.animTick > SPEED_DIVISOR) {
+            this.animFrame++;
+            this.animTick = 0;
+        }
+
+        // If wave passes stick count, show result
+        if (this.animFrame > stickCount + WAVE_PATTERN.length + 2) {
+            this.draw(true);
+            return;
+        }
 
         for (let i = 0; i < stickCount; i++) {
             const x = this.padding + (i * (stickWidth + this.padding));
+            const waveIndex = this.animFrame - i;
             
+            let multiplier = 1.0;
+            if (waveIndex >= 0 && waveIndex < WAVE_PATTERN.length) {
+                multiplier = WAVE_PATTERN[waveIndex];
+            }
+
+            const currentH = baseHeight * multiplier;
+            const currentY = (this.canvas.height - currentH) / 2;
+
             this.drawStick(
-                x, 
-                startY, 
-                stickWidth, 
-                stickHeight, 
+                x,
+                currentY,
+                stickWidth,
+                currentH,
                 stickRadius,
-                this.faces[i] ? this.stickLight : this.stickColor
+                this.stickColor 
             );
         }
 
-        return this.canvas;
+        this.animationId = requestAnimationFrame(() => this.draw(false));
     }
 }
 
